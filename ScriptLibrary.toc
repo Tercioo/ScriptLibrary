@@ -3,6 +3,9 @@
 ## Notes: An addon by Terciob, organize and save scripts which can be executed on demand or executed on login.
 ## SavedVariables: RuntimeEditorDB, ScriptLibraryDB
 
+## X-Curse-Project-ID: 630025
+## X-Wago-ID: qv63OD6b
+
 #@no-lib-strip@
 libs\libs.xml
 #@end-no-lib-strip@
