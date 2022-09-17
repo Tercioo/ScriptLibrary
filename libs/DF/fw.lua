@@ -1,6 +1,6 @@
 
 
-local dversion = 353
+local dversion = 354
 local major, minor = "DetailsFramework-1.0", dversion
 local DF, oldminor = LibStub:NewLibrary (major, minor)
 
@@ -279,8 +279,6 @@ DF.FrameWorkVersion = tostring (dversion)
 function DF:PrintVersion()
 	print ("Details! Framework Version:", DF.FrameWorkVersion)
 end
-
-LibStub:GetLibrary("AceTimer-3.0"):Embed (DF)
 
 --> get the working folder
 do
