@@ -256,8 +256,8 @@ function scriptLibrary.CreateMainOptionsFrame()
 
         --shift + enter to execute
         local executeLabel = DF:CreateLabel(codeEditor, "[SHIFT + ENTER] to save and execute the code", DF:GetTemplate("font", "ORANGE_FONT_TEMPLATE"))
-        executeLabel:SetPoint("left", reloadButton, "right", 100, 0)
-        executeLabel.fontsize = 14
+        executeLabel:SetPoint("left", reloadButton, "right", 30, 1)
+        executeLabel.fontsize = 12
         executeLabel.color = {.8, .8, .8, .5}
 
         --addon name
@@ -369,7 +369,7 @@ function scriptLibrary.CreateMainOptionsFrame()
     end
 
     local increaseFontSizeButton = DF:CreateButton(mainFrame, changeFontSize, 40, 20, "aA", true, nil, nil, "decreaseFontSizeButton", nil, nil, DF:GetTemplate("button", "OPTIONS_BUTTON_TEMPLATE"), DF:GetTemplate("font", "CODE_BUTTON"))
-    increaseFontSizeButton:SetPoint("bottomright", mainFrame, "bottomright", -32, 40)
+    increaseFontSizeButton:SetPoint("bottomright", mainFrame, "bottomright", -32, 38)
 
     local decreaseFontSizeButton = DF:CreateButton(mainFrame, changeFontSize, 40, 20, "Aa", false, nil, nil, "decreaseFontSizeButton", nil, nil, DF:GetTemplate("button", "OPTIONS_BUTTON_TEMPLATE"), DF:GetTemplate("font", "CODE_BUTTON"))
     decreaseFontSizeButton:SetPoint("right", increaseFontSizeButton, "left", -2, 0)
