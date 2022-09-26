@@ -573,7 +573,7 @@ scriptLibrary.CurrentScriptObject = nil
 					if (thisObject.AutoRun) then
 						local codeCompiled = scriptLibrary.Compile(thisObject.Code, thisObject.Name)
 						if (type(codeCompiled) == "function") then
-							local funcToRun = codeCompiled()
+							local funcToRun = codeCompiled
 							if (type(funcToRun) == "function") then
 								local okay, errortext = pcall(funcToRun)
 								if (not okay) then
