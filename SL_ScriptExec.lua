@@ -10,7 +10,6 @@ if (not DF) then
     return
 end
 
-
 function scriptLibrary.Compile(funcString, funcName)
     local code = "return " .. funcString
     local compiledCode, errortext = loadstring(code, "Compiling " .. (funcName or ""))
@@ -23,7 +22,7 @@ function scriptLibrary.Compile(funcString, funcName)
     end
 
     if (type(compiledCode) ~= "function") then
-        scriptLibrary:Msg("failed to compile " .. (funcName or "") .. ": function()end brackets not found.")
+        --scriptLibrary:Msg("failed to compile " .. (funcName or "") .. ": function()end brackets not found.")
         return
     end
 

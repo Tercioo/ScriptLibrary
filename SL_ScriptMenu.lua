@@ -145,6 +145,7 @@ function scriptLibrary.CreateScriptSelectionScrollBox()
         self.ID = ID
         self.CodeName.text = data.Name
         self.Icon:SetTexture(data.Icon)
+        self.RunOnLabel.text = data.AutoRun and "run on login" or ""
     end
 
     local cooltipScriptsScrollbox = function(self, fixed_parameter)
@@ -212,6 +213,7 @@ function scriptLibrary.CreateScriptSelectionScrollBox()
             icon:SetTexCoord(.1, .9, .1, .9)
 
             local codeName = DF:CreateLabel(line, "", DF:GetTemplate ("font", "CODE_SCRIPTS_NAME"))
+            local runOnLabel = DF:CreateLabel(line, "", DF:GetTemplate ("font", "CODE_SCRIPTS_RUNON"))
 
             local removeButton = CreateFrame("button", "$parentRemoveButton", line, "UIPanelCloseButton")
             removeButton:SetSize(12, 12)
@@ -242,11 +244,13 @@ function scriptLibrary.CreateScriptSelectionScrollBox()
             --setup anchors
             icon:SetPoint("left", line, "left", 2, 0)
             codeName:SetPoint("topleft", icon, "topright", 2, -2)
+            runOnLabel:SetPoint("topleft", codeName, "bottomleft", 0, -2)
 
             line.Icon = icon
             line.CodeName = codeName
             line.RemoveButton = removeButton
             line.RunButton = runButton
+            line.RunOnLabel = runOnLabel
 
             line.UpdateLine = updateLineFunction
 

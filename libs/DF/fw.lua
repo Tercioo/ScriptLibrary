@@ -1,6 +1,6 @@
 
 
-local dversion = 355
+local dversion = 361
 local major, minor = "DetailsFramework-1.0", dversion
 local DF, oldminor = LibStub:NewLibrary (major, minor)
 
@@ -79,6 +79,13 @@ end
 function DF.IsWotLKWow()
     local _, _, _, buildInfo = GetBuildInfo()
     if (buildInfo < 40000 and buildInfo >= 30000) then
+        return true
+    end
+end
+
+function DF.IsShadowlandsWow()
+    local _, _, _, buildInfo = GetBuildInfo()
+    if (buildInfo < 100000 and buildInfo >= 90000) then
         return true
     end
 end
@@ -1064,47 +1071,45 @@ end
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 --> points
 
-	function DF:CheckPoints (v1, v2, v3, v4, v5, object)
-
+	function DF:CheckPoints(v1, v2, v3, v4, v5, object)
 		if (not v1 and not v2) then
 			return "topleft", object.widget:GetParent(), "topleft", 0, 0
 		end
-		
-		if (_type (v1) == "string") then
-			local frameGlobal = _G [v1]
-			if (frameGlobal and type (frameGlobal) == "table" and frameGlobal.GetObjectType) then
-				return DF:CheckPoints (frameGlobal, v2, v3, v4, v5, object)
+
+		if (type(v1) == "string") then
+			local frameGlobal = _G[v1]
+			if (frameGlobal and type(frameGlobal) == "table" and frameGlobal.GetObjectType) then
+				return DF:CheckPoints(frameGlobal, v2, v3, v4, v5, object)
 			end
-			
-		elseif (_type (v2) == "string") then
-			local frameGlobal = _G [v2]
-			if (frameGlobal and type (frameGlobal) == "table" and frameGlobal.GetObjectType) then
-				return DF:CheckPoints (v1, frameGlobal, v3, v4, v5, object)
+
+		elseif (type(v2) == "string") then
+			local frameGlobal = _G[v2]
+			if (frameGlobal and type(frameGlobal) == "table" and frameGlobal.GetObjectType) then
+				return DF:CheckPoints(v1, frameGlobal, v3, v4, v5, object)
 			end
 		end
-		
-		if (_type (v1) == "string" and _type (v2) == "table") then --> :setpoint ("left", frame, _, _, _)
-			if (not v3 or _type (v3) == "number") then --> :setpoint ("left", frame, 10, 10)
+
+		if (type(v1) == "string" and type(v2) == "table") then --setpoint("left", frame, _, _, _)
+			if (not v3 or type(v3) == "number") then --setpoint("left", frame, 10, 10)
 				v1, v2, v3, v4, v5 = v1, v2, v1, v3, v4
 			end
-			
-		elseif (_type (v1) == "string" and _type (v2) == "number") then --> :setpoint ("topleft", x, y)
+
+		elseif (type(v1) == "string" and type(v2) == "number") then --setpoint("topleft", x, y)
 			v1, v2, v3, v4, v5 = v1, object.widget:GetParent(), v1, v2, v3
-			
-		elseif (_type (v1) == "number") then --> :setpoint (x, y) 
+
+		elseif (type(v1) == "number") then --setpoint(x, y) 
 			v1, v2, v3, v4, v5 = "topleft", object.widget:GetParent(), "topleft", v1, v2
 
-		elseif (_type (v1) == "table") then --> :setpoint (frame, x, y)
+		elseif (type(v1) == "table") then --setpoint(frame, x, y)
 			v1, v2, v3, v4, v5 = "topleft", v1, "topleft", v2, v3
-			
 		end
-		
+
 		if (not v2) then
 			v2 = object.widget:GetParent()
 		elseif (v2.dframework) then
 			v2 = v2.widget
 		end
-		
+
 		return v1 or "topleft", v2, v3 or "topleft", v4 or 0, v5 or 0
 	end
 	
@@ -1240,7 +1245,7 @@ end
 			return {r, g, b, a}
 
 		elseif (newFormat == "tablemembers") then
-			return {["r"] = r, ["g"] = g, ["b"] = b, ["a"] = 1}
+			return {["r"] = r, ["g"] = g, ["b"] = b, ["a"] = a}
 
 		elseif (newFormat == "numbers") then
 			return r, g, b, a

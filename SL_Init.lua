@@ -66,26 +66,29 @@ local options_table = {
     }
 }
 
+local font = DF:GetBestFontForLanguage()
+
 --> create templates
     DF:InstallTemplate ("button", "RUNTIMEEDITOR_BUTTON_TEMPLATE",
         {
             textsize = 10,
-            textfont = "Friz Quadrata TT",
+            textfont = font,
             textcolor = {1, .9, 0},
             onentercolor = {.8, .8, .8, .9}
-        }, 
+        },
         "OPTIONS_BUTTON_TEMPLATE"
     )
 
     DF:InstallTemplate ("font", "RUNTIMEEDITOR_BUTTONTEXT_TEMPLATE", {
-        color = "fadedorange", 
+        color = "fadedorange",
         size = 10, 
-        font = "Friz Quadrata TT"
+        font = font
     })
 
-    DF:InstallTemplate ("font", "CODE_SCRIPTS_NAME", {color = "orange", size = 10, font = "Friz Quadrata TT"})
-    DF:InstallTemplate ("font", "CODE_BUTTON", {color = {1, .8, .2}, size = 10, font = "Friz Quadrata TT"})
-    DF:InstallTemplate ("font", "CODE_BUTTON_DISABLED", {color = {1/3, .8/3, .2/3}, size = 10, font = "Friz Quadrata TT"})
+    DF:InstallTemplate ("font", "CODE_SCRIPTS_NAME", {color = "orange", size = 10, font = font})
+    DF:InstallTemplate ("font", "CODE_SCRIPTS_RUNON", {color = {.5, .5, .5, 0.5}, size = 9, font = font})
+    DF:InstallTemplate ("font", "CODE_BUTTON", {color = {1, .8, .2}, size = 10, font = font})
+    DF:InstallTemplate ("font", "CODE_BUTTON_DISABLED", {color = {1/3, .8/3, .2/3}, size = 10, font = font})
 
 --> frame settings
     local settingsButtons = {
