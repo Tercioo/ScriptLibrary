@@ -213,6 +213,12 @@ function scriptLibrary.CreateMainOptionsFrame()
             codeEditor.NextCodeCheck = codeEditor.NextCodeCheck - deltaTime
             if (codeEditor.NextCodeCheck < 0) then
                 local script = codeEditor:GetText()
+
+                local functionIsNaked = scriptLibrary.IsFunctionNaked(script)
+                if(functionIsNaked)then
+                    script = "function(...) "..script.." end"
+                end
+
                 script = "return " .. script
                 local func, errortext = loadstring (script, "Q")
                 if (not func) then

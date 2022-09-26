@@ -10,7 +10,17 @@ if (not DF) then
     return
 end
 
+local functionPatternPrototype = "^%s-function%s-%((.-)%)(.-)end%s-$"
+function scriptLibrary.IsFunctionNaked(funcString)
+    return string.find(funcString,functionPatternPrototype) == nil
+end
+
 function scriptLibrary.Compile(funcString, funcName)
+    local functionIsNaked = scriptLibrary.IsFunctionNaked(funcString)
+    if(functionIsNaked)then
+        funcString = "function(...) "..funcString.." end"
+    end
+
     local code = "return " .. funcString
     local compiledCode, errortext = loadstring(code, "Compiling " .. (funcName or ""))
 
@@ -22,7 +32,8 @@ function scriptLibrary.Compile(funcString, funcName)
     end
 
     if (type(compiledCode) ~= "function") then
-        --scriptLibrary:Msg("failed to compile " .. (funcName or "") .. ": function()end brackets not found.")
+        -- This should never happen really so error msg is not really important
+        scriptLibrary:Msg("Internal error: failed to extract compiled function " .. (funcName or ""))
         return
     end
 
