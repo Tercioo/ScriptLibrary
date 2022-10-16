@@ -101,7 +101,7 @@ local font = DF:GetBestFontForLanguage()
         height = 570,
         lines = 18,
         lineHeight = 30.4,
-        lineBackdropColor = {0, 0, 0, 0.5},
+        lineBackdropColor = {0, 0, 0, 0.01},
         lineBackdropColorSelected = {.6, .6, .1, 0.7},
     }
 

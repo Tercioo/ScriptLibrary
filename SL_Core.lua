@@ -452,8 +452,10 @@ scriptLibrary.CurrentScriptObject = nil
 		frame:SetBackdrop({edgeFile = [[Interface\Buttons\WHITE8X8]], edgeSize = 1})
 		frame:SetBackdropBorderColor(0, 0, 0, 1)
 
-		frame.__background:SetColorTexture(0.2317647, 0.2317647, 0.2317647)
-		frame.__background:SetVertexColor(0.27, 0.27, 0.27)
+		local r, g, b, a = DF:GetDefaultBackdropColor()
+
+		frame.__background:SetColorTexture(r, g, b, 0.94)
+		frame.__background:SetVertexColor(r, g, b, 0.94)
 		frame.__background:SetAlpha(0.8)
 		frame.__background:SetVertTile(true)
 		frame.__background:SetHorizTile(true)
@@ -474,6 +476,7 @@ scriptLibrary.CurrentScriptObject = nil
 		f.FunctionNameTextEntry:Disable()
 		f.ArgumentsTextEntry:Disable()
 		f.CodeAutorunCheckbox:Disable()
+		f.UseXPCallCheckbox:Disable()
 	end
 
 	function scriptLibrary.EnableAllWidgets()
@@ -489,6 +492,7 @@ scriptLibrary.CurrentScriptObject = nil
 		f.FunctionNameTextEntry:Enable()
 		f.ArgumentsTextEntry:Enable()
 		f.CodeAutorunCheckbox:Enable()
+		f.UseXPCallCheckbox:Enable()
 	end
 
 	--get all settings from the code table and apply them into all widgets, such as code name, desc etc.
@@ -503,6 +507,7 @@ scriptLibrary.CurrentScriptObject = nil
 		f.CodeEditor.editbox:SetCursorPosition(scriptObject.CursorPosition)
 
 		f.CodeAutorunCheckbox:SetValue(scriptObject.AutoRun)
+		f.UseXPCallCheckbox:SetValue(scriptObject.UseXPCall)
 
 		f.AddonNameTextEntry:SetText (scriptObject.AddonName)
 		f.FunctionNameTextEntry:SetText (scriptObject.FunctionName)

@@ -208,6 +208,9 @@ function scriptLibrary.CreateScriptSelectionScrollBox()
             line:SetBackdropColor(unpack(settingsScrollBox.lineBackdropColor))
             line:SetBackdropBorderColor(0, 0, 0, 1)
 
+            --local bottomGradient = DF:CreateTexture(line, {gradient = "vertical", fromColor = {0, 0, 0, 0.05}, toColor = "transparent"}, 1, settingsScrollBox.lineHeight, "artwork", {0, 1, 0, 1}, "bottomGradient")
+            --bottomGradient:SetPoint("bottoms")
+
             local icon = line:CreateTexture("$parentIcon", "overlay")
             icon:SetSize(settingsScrollBox.lineHeight - 4, settingsScrollBox.lineHeight - 4)
             icon:SetTexCoord(.1, .9, .1, .9)

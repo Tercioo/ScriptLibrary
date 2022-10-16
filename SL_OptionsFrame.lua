@@ -31,6 +31,11 @@ function scriptLibrary.CreateMainOptionsFrame()
         local mainFrame = DF:CreateSimplePanel(UIParent, optionsFrameSettings.width, optionsFrameSettings.height, "Script Library", "RuntimeEditorMainWindow", panel_options, db)
         mainFrame:SetPoint("center", UIParent, "center", 0, 0)
         mainFrame:SetFrameStrata("LOW")
+        DetailsFramework:ApplyStandardBackdrop(mainFrame)
+
+        local bottomGradient = DF:CreateTexture(mainFrame, {gradient = "vertical", fromColor = {0, 0, 0, 0.4}, toColor = "transparent"}, 1, 120, "artwork", {0, 1, 0, 1}, "bottomGradient")
+        bottomGradient:SetPoint("bottoms")
+
         --register into the window stack
         local onShowWindow = function()
         end
@@ -126,13 +131,33 @@ function scriptLibrary.CreateMainOptionsFrame()
         autorunCheckbox:SetAsCheckBox()
         autorunCheckbox:SetSize(20, 20)
         autorunCheckbox:ClearAllPoints()
-        autorunCheckbox:SetPoint("topleft", codeIconLabel, "bottomleft", 100, -2)
+        autorunCheckbox:SetPoint("topleft", codeIconLabel, "bottomleft", 100, 10)
         autorunCheckbox:SetValue(false)
         mainFrame.CodeAutorunCheckbox = autorunCheckbox
 
         autorunLabel:ClearAllPoints()
         autorunLabel:SetPoint("left", autorunCheckbox, "right", 2, 0)
         autorunLabel.text = "Auto Run on Login"
+
+        --use xpcall instead of pcall check box
+        local useXPCallCallback = function(self, fixedParameter, value)
+            local currentCode = scriptLibrary.GetCurrentScriptObject()
+            if (currentCode) then
+                currentCode.UseXPCall = value
+                print(value)
+            end
+        end
+        local useXPCallCheckbox, useXPCallLabel = DF:CreateSwitch(scriptInfoFrame, useXPCallCallback, false, _, _, _, _, _, _, _, _, _, "use XPCall", DF:GetTemplate("switch", "OPTIONS_CHECKBOX_TEMPLATE"), DF:GetTemplate("font", "ORANGE_FONT_TEMPLATE"))
+        useXPCallCheckbox:SetAsCheckBox()
+        useXPCallCheckbox:SetSize(20, 20)
+        useXPCallCheckbox:ClearAllPoints()
+        useXPCallCheckbox:SetPoint("topleft", autorunCheckbox, "bottomleft", 0, -4)
+        useXPCallCheckbox:SetValue(false)
+        mainFrame.UseXPCallCheckbox = useXPCallCheckbox
+
+        useXPCallLabel:ClearAllPoints()
+        useXPCallLabel:SetPoint("left", useXPCallCheckbox, "right", 2, 0)
+        useXPCallLabel.text = "Use xpcall"
 
         --description
         local codeDescLabel = DF:CreateLabel(scriptInfoFrame, "Description:", DF:GetTemplate("font", "ORANGE_FONT_TEMPLATE"))

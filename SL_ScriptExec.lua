@@ -87,9 +87,13 @@ function scriptLibrary.ExecuteCode(onlyReplace)
 
     --run
     if (not onlyReplace) then
-        local okay, errortext = pcall(functionToRun, argumentsFunc())
-        if (not okay) then
-            scriptLibrary:Msg("Code |cFFAAAA22" .. scriptLibrary.CurrentScriptObject.Name .. "|r runtime error: " .. errortext)
+        if (scriptLibrary.CurrentScriptObject.UseXPCall) then
+            xpcall(functionToRun, geterrorhandler(), argumentsFunc())
+        else
+            local okay, errortext = pcall(functionToRun, argumentsFunc())
+            if (not okay) then
+                scriptLibrary:Msg("Code |cFFAAAA22" .. scriptLibrary.CurrentScriptObject.Name .. "|r runtime error: " .. errortext)
+            end
         end
     end
 end
@@ -114,6 +118,7 @@ function scriptLibrary.SaveCode()
     scriptLibrary.CurrentScriptObject.Code = f.CodeEditor:GetText()
     scriptLibrary.CurrentScriptObject.Time = time()
     scriptLibrary.CurrentScriptObject.AutoRun = f.CodeAutorunCheckbox:GetValue()
+    scriptLibrary.CurrentScriptObject.UseXPCall = f.UseXPCallCheckbox:GetValue()
     scriptLibrary.CurrentScriptObject.CursorPosition = cursorPosition
     scriptLibrary.CurrentScriptObject.ScrollValue = f.CodeEditor.scroll:GetVerticalScroll()
 

@@ -1,63 +1,275 @@
 
-local DF = _G ["DetailsFramework"]
-if (not DF or not DetailsFrameworkCanLoad) then
+local detailsFramework = _G["DetailsFramework"]
+if (not detailsFramework or not DetailsFrameworkCanLoad) then
 	return
 end
 
 local _
 
-DF.DefaultMetaFunctionsGet = {
+local getFrame = function(frame)
+	return rawget(frame, "widget") or frame
+end
+
+detailsFramework.WidgetFunctions = {
+	GetCapsule = function(self)
+		return self.MyObject
+	end,
+
+	GetObject = function(self)
+		return self.MyObject
+	end,
+}
+
+detailsFramework.DefaultMetaFunctionsGet = {
 	parent = function(object)
 		return object:GetParent()
 	end,
-}
 
-DF.DefaultMetaFunctionsSet = {
-	parent = function(object, value)
-		return object:SetParent(value)
+	shown = function(object)
+		return object:IsShown()
 	end,
 }
 
-DF.SetPointMixin = {
-	SetPoint = function(object, achorName1, anchorObject, anchorName2, xOffset, yOffset)
+detailsFramework.TooltipHandlerMixin = {
+	SetTooltip = function(self, tooltip)
+		if (tooltip) then
+			if (detailsFramework.Language.IsLocTable(tooltip)) then
+				--register the locTable as a tableKey
+				local locTable = tooltip
+				detailsFramework.Language.RegisterTableKeyWithLocTable(self, "have_tooltip", locTable)
+			else
+				self.have_tooltip = tooltip
+			end
+		else
+			self.have_tooltip = nil
+		end
+	end,
+
+	GetTooltip = function(self)
+		return self.have_tooltip
+	end,
+
+	ShowTooltip = function(self)
+		local tooltipText = self:GetTooltip()
+
+		if (type(tooltipText) == "function") then
+			local tooltipFunction = tooltipText
+			local gotTooltip, tooltipString = xpcall(tooltipFunction, geterrorhandler())
+			if (gotTooltip) then
+				tooltipText = tooltipString
+			end
+		end
+
+		if (tooltipText) then
+			GameCooltip:Preset(2)
+			GameCooltip:AddLine(tooltipText)
+			GameCooltip:ShowCooltip(getFrame(self), "tooltip")
+		end
+	end,
+
+	HideTooltip = function(self)
+		local tooltipText = self:GetTooltip()
+		if (tooltipText) then
+			if (GameCooltip:IsOwner(getFrame(self))) then
+				GameCooltip:Hide()
+			end
+		end
+	end,
+}
+
+detailsFramework.DefaultMetaFunctionsSet = {
+	parent = function(object, value)
+		return object:SetParent(value)
+	end,
+
+	show = function(object, value)
+		if (value) then
+			return object:Show()
+		else
+			return object:Hide()
+		end
+	end,
+
+	hide = function(object, value)
+		if (value) then
+			return object:Hide()
+		else
+			return object:Show()
+		end
+	end,
+}
+
+detailsFramework.DefaultMetaFunctionsSet.shown = detailsFramework.DefaultMetaFunctionsSet.show
+
+detailsFramework.LayeredRegionMetaFunctionsSet = {
+	drawlayer = function(object, value)
+		object.image:SetDrawLayer(value)
+	end,
+
+	sublevel = function(object, value)
+		local drawLayer = object:GetDrawLayer()
+		object:SetDrawLayer(drawLayer, value)
+	end,
+}
+
+detailsFramework.LayeredRegionMetaFunctionsGet = {
+	drawlayer = function(object)
+		return object.image:GetDrawLayer()
+	end,
+
+	sublevel = function(object)
+		local _, subLevel = object.image:GetDrawLayer()
+		return subLevel
+	end,
+}
+
+detailsFramework.FrameMixin = {
+	SetFrameStrata = function(self, strata)
+		self = getFrame(self)
+		if (type(strata) == "table" and strata.GetObjectType) then
+			local UIObject = strata
+			self:SetFrameStrata(UIObject:GetFrameStrata())
+		else
+			self:SetFrameStrata(strata)
+		end
+	end,
+
+	SetFrameLevel = function(self, level, UIObject)
+		self = getFrame(self)
+		if (not UIObject) then
+			self:SetFrameLevel(level)
+		else
+			local framelevel = UIObject:GetFrameLevel(UIObject) + level
+			self:SetFrameLevel(framelevel)
+		end
+	end,
+
+	SetSize = function(self, width, height)
+		self = getFrame(self)
+		if (width) then
+			self:SetWidth(width)
+		end
+		if (height) then
+			self:SetHeight(height)
+		end
+	end,
+
+	SetBackdrop = function(self, ...)
+		self = getFrame(self)
+		self:SetBackdrop(...)
+	end,
+
+	SetBackdropColor = function(self, ...)
+		self = getFrame(self)
+		self:SetBackdropColor(...)
+	end,
+
+	SetBackdropBorderColor = function(self, ...)
+		self = getFrame(self)
+		getFrame(self):SetBackdropBorderColor(...)
+	end,
+}
+
+local doublePoint = {
+	["lefts"] = true,
+	["rights"] = true,
+	["tops"] = true,
+	["bottoms"] = true,
+
+	["left-left"] = true,
+	["right-right"] = true,
+	["top-top"] = true,
+	["bottom-bottom"] = true,
+
+	["bottom-top"] = true,
+	["top-bottom"] = true,
+	["right-left"] = true,
+	["left-right"] = true,
+}
+
+detailsFramework.SetPointMixin = {
+	SetPoint = function(object, anchorName1, anchorObject, anchorName2, xOffset, yOffset)
+		if (doublePoint[anchorName1]) then
+			object:ClearAllPoints()
+			local anchorTo
+			if (anchorObject and type(anchorObject) == "table") then
+				xOffset, yOffset = anchorName2 or 0, xOffset or 0
+				anchorTo = getFrame(anchorObject)
+			else
+				xOffset, yOffset = anchorObject or 0, anchorName2 or 0
+				anchorTo = object:GetParent()
+			end
+
+			--offset always inset to inner
+			if (anchorName1 == "lefts") then
+				object:SetPoint("topleft", anchorTo, "topleft", xOffset, -yOffset)
+				object:SetPoint("bottomleft", anchorTo, "bottomleft", xOffset, yOffset)
+
+			elseif (anchorName1 == "rights") then
+				object:SetPoint("topright", anchorTo, "topright", xOffset, -yOffset)
+				object:SetPoint("bottomright", anchorTo, "bottomright", xOffset, yOffset)
+
+			elseif (anchorName1 == "tops") then
+				object:SetPoint("topleft", anchorTo, "topleft", xOffset, -yOffset)
+				object:SetPoint("topright", anchorTo, "topright", -xOffset, -yOffset)
+
+			elseif (anchorName1 == "bottoms") then
+				object:SetPoint("bottomleft", anchorTo, "bottomleft", xOffset, yOffset)
+				object:SetPoint("bottomright", anchorTo, "bottomright", -xOffset, yOffset)
+
+			elseif (anchorName1 == "left-left") then
+				object:SetPoint("left", anchorTo, "left", xOffset, yOffset)
+
+			elseif (anchorName1 == "right-right") then
+				object:SetPoint("right", anchorTo, "right", xOffset, yOffset)
+
+			elseif (anchorName1 == "top-top") then
+				object:SetPoint("top", anchorTo, "top", xOffset, yOffset)
+
+			elseif (anchorName1 == "bottom-bottom") then
+				object:SetPoint("bottom", anchorTo, "bottom", xOffset, yOffset)
+
+			elseif (anchorName1 == "bottom-top") then
+				object:SetPoint("bottomleft", anchorTo, "topleft", xOffset, yOffset)
+				object:SetPoint("bottomright", anchorTo, "topright", -xOffset, yOffset)
+
+			elseif (anchorName1 == "top-bottom") then
+				object:SetPoint("topleft", anchorTo, "bottomleft", xOffset, -yOffset)
+				object:SetPoint("topright", anchorTo, "bottomright", -xOffset, -yOffset)
+
+			elseif (anchorName1 == "right-left") then
+				object:SetPoint("topright", anchorTo, "topleft", xOffset, -yOffset)
+				object:SetPoint("bottomright", anchorTo, "bottomleft", xOffset, yOffset)
+
+			elseif (anchorName1 == "left-right") then
+				object:SetPoint("topleft", anchorTo, "topright", xOffset, -yOffset)
+				object:SetPoint("bottomleft", anchorTo, "bottomright", xOffset, yOffset)
+			end
+
+			return
+		end
+
 		xOffset = xOffset or 0
 		yOffset = yOffset or 0
 
-		--offset always inset to inner
-		if (achorName1 == "lefts") then
-			object:SetAllPoints()
-			object:SetPoint("topleft", anchorObject, "topleft", xOffset, -yOffset)
-			object:SetPoint("bottomleft", anchorObject, "bottomleft", xOffset, yOffset)
-			return
-
-		elseif (achorName1 == "rights") then
-			object:SetPoint("topright", anchorObject, "topright", xOffset, -yOffset)
-			object:SetPoint("bottomright", anchorObject, "bottomright", xOffset, yOffset)
-			return
-
-		elseif (achorName1 == "tops") then
-			object:SetPoint("topleft", anchorObject, "topleft", xOffset, -yOffset)
-			object:SetPoint("topright", anchorObject, "topright", -xOffset, -yOffset)
-			return
-
-		elseif (achorName1 == "bottoms") then
-			object:SetPoint("bottomleft", anchorObject, "bottomleft", xOffset, yOffset)
-			object:SetPoint("bottomright", anchorObject, "bottomright", -xOffset, yOffset)
-			return
-		end
-
-		achorName1, anchorObject, anchorName2, xOffset, yOffset = DF:CheckPoints(achorName1, anchorObject, anchorName2, xOffset, yOffset, object)
-		if (not achorName1) then
+		anchorName1, anchorObject, anchorName2, xOffset, yOffset = detailsFramework:CheckPoints(anchorName1, anchorObject, anchorName2, xOffset, yOffset, object)
+		if (not anchorName1) then
 			error("SetPoint: Invalid parameter.")
 			return
 		end
-		return object.widget:SetPoint(achorName1, anchorObject, anchorName2, xOffset, yOffset)
+
+		if (not object.widget) then
+			local SetPoint = getmetatable(object).__index.SetPoint
+			return SetPoint(object, anchorName1, anchorObject, anchorName2, xOffset, yOffset)
+		else
+			return object.widget:SetPoint(anchorName1, anchorObject, anchorName2, xOffset, yOffset)
+		end
 	end,
 }
 
 --mixin for options functions
-DF.OptionsFunctions = {
-	SetOption = function (self, optionName, optionValue)
+detailsFramework.OptionsFunctions = {
+	SetOption = function(self, optionName, optionValue)
 		if (self.options) then
 			self.options [optionName] = optionValue
 		else
@@ -66,18 +278,18 @@ DF.OptionsFunctions = {
 		end
 
 		if (self.OnOptionChanged) then
-			DF:Dispatch (self.OnOptionChanged, self, optionName, optionValue)
+			detailsFramework:Dispatch (self.OnOptionChanged, self, optionName, optionValue)
 		end
 	end,
 
-	GetOption = function (self, optionName)
+	GetOption = function(self, optionName)
 		return self.options and self.options [optionName]
 	end,
 
-	GetAllOptions = function (self)
+	GetAllOptions = function(self)
 		if (self.options) then
 			local optionsTable = {}
-			for key, _ in pairs (self.options) do
+			for key, _ in pairs(self.options) do
 				optionsTable [#optionsTable + 1] = key
 			end
 			return optionsTable
@@ -86,15 +298,15 @@ DF.OptionsFunctions = {
 		end
 	end,
 
-	BuildOptionsTable = function (self, defaultOptions, userOptions)
+	BuildOptionsTable = function(self, defaultOptions, userOptions)
 		self.options = self.options or {}
-		DF.table.deploy (self.options, userOptions or {})
-		DF.table.deploy (self.options, defaultOptions or {})
+		detailsFramework.table.deploy(self.options, userOptions or {})
+		detailsFramework.table.deploy(self.options, defaultOptions or {})
 	end
 }
 
 --payload mixin
-DF.PayloadMixin = {
+detailsFramework.PayloadMixin = {
 	ClearPayload = function(self)
 		self.payload = {}
 	end,
@@ -126,14 +338,84 @@ DF.PayloadMixin = {
 
 	--does not copy wow objects, just pass them to the new table, tables strings and numbers are copied entirely
 	DuplicatePayload = function(self)
-		local duplicatedPayload = DF.table.duplicate({}, self.payload)
+		local duplicatedPayload = detailsFramework.table.duplicate({}, self.payload)
 		return duplicatedPayload
 	end,
 }
 
-DF.ScrollBoxFunctions = {
+detailsFramework.ScriptHookMixin = {
+	RunHooksForWidget = function(self, event, ...)
+		local hooks = self.HookList[event]
+
+		if (not hooks) then
+			print(self.widget:GetName(), "no hooks for", event)
+			return
+		end
+
+		for i, func in ipairs(hooks) do
+			local success, canInterrupt = xpcall(func, geterrorhandler(), ...)
+
+			if (not success) then
+				--error("Details! Framework: " .. event .. " hook for " .. self:GetName() .. ": " .. canInterrupt)
+				return false
+
+			elseif (canInterrupt) then
+				return true
+			end
+		end
+	end,
+
+	SetHook = function(self, hookType, func)
+		if (self.HookList[hookType]) then
+			if (type(func) == "function") then
+				local isRemoval = false
+				for i = #self.HookList[hookType], 1, -1 do
+					if (self.HookList[hookType][i] == func) then
+						tremove(self.HookList[hookType], i)
+						isRemoval = true
+						break
+					end
+				end
+
+				if (not isRemoval) then
+					tinsert(self.HookList[hookType], func)
+				end
+			else
+				if (detailsFramework.debug) then
+					print(debugstack())
+					error("Details! Framework: invalid function for widget " .. self.WidgetType .. ".")
+				end
+			end
+		else
+			if (detailsFramework.debug) then
+				error("Details! Framework: unknown hook type for widget " .. self.WidgetType .. ": '" .. hookType .. "'.")
+			end
+		end
+	end,
+
+	HasHook = function(self, hookType, func)
+		if (self.HookList[hookType]) then
+			if (type(func) == "function") then
+				for i = #self.HookList[hookType], 1, -1 do
+					if (self.HookList[hookType][i] == func) then
+						return true
+					end
+				end
+			end
+		end
+	end,
+
+	ClearHooks = function(self)
+		for hookType, hookTable in pairs(self.HookList) do
+			table.wipe(hookTable)
+		end
+	end,
+}
+
+detailsFramework.ScrollBoxFunctions = {
 	Refresh = function(self)
 		--hide all frames and tag as not in use
+		self._LinesInUse = 0
 		for index, frame in ipairs(self.Frames) do
 			frame:Hide()
 			frame._InUse = nil
@@ -145,7 +427,7 @@ DF.ScrollBoxFunctions = {
 			offset = self:GetOffsetFaux()
 		end
 
-		DF:CoreDispatch((self:GetName() or "ScrollBox") .. ":Refresh()", self.refresh_func, self, self.data, offset, self.LineAmount)
+		detailsFramework:CoreDispatch((self:GetName() or "ScrollBox") .. ":Refresh()", self.refresh_func, self, self.data, offset, self.LineAmount)
 
 		for index, frame in ipairs(self.Frames) do
 			if (not frame._InUse) then
@@ -157,13 +439,25 @@ DF.ScrollBoxFunctions = {
 
 		self:Show()
 
-		if (self.HideScrollBar) then
-			local frameName = self:GetName()
-			if (frameName) then
+		local frameName = self:GetName()
+		if (frameName) then
+			if (self.HideScrollBar) then
 				local scrollBar = _G[frameName .. "ScrollBar"]
 				if (scrollBar) then
 					scrollBar:Hide()
 				end
+			else
+				--[=[ --maybe in the future I visit this again
+				local scrollBar = _G[frameName .. "ScrollBar"]
+				local height = self:GetHeight()
+				local totalLinesRequired = #self.data
+				local linesShown = self._LinesInUse
+
+				local percent = linesShown / totalLinesRequired
+				local thumbHeight = height * percent
+				scrollBar.ThumbTexture:SetSize(12, thumbHeight)
+				print("thumbHeight:", thumbHeight)
+				--]=]
 			end
 		end
 		return self.Frames
@@ -180,11 +474,20 @@ DF.ScrollBoxFunctions = {
 		end
 		local okay, newLine = pcall(func, self, #self.Frames+1)
 		if (okay) then
+			if (not newLine) then
+				error("ScrollFrame:CreateLine() function did not returned a line, use: 'return line'")
+			end
 			tinsert(self.Frames, newLine)
 			newLine.Index = #self.Frames
 			return newLine
 		else
-			error("Details! FrameWork: CreateLine(): " .. newLine)
+			error("ScrollFrame:CreateLine() error on creating a line: " .. newLine)
+		end
+	end,
+
+	CreateLines = function(self, callback, lineAmount)
+		for i = 1, lineAmount do
+			self:CreateLine(callback)
 		end
 	end,
 
@@ -193,6 +496,8 @@ DF.ScrollBoxFunctions = {
 		if (line) then
 			line._InUse = true
 		end
+
+		self._LinesInUse = self._LinesInUse + 1
 		return line
 	end,
 
@@ -364,14 +669,14 @@ DF.ScrollBoxFunctions = {
 }
 
 local SortMember = ""
-local SortByMember = function (t1, t2)
+local SortByMember = function(t1, t2)
 	return t1[SortMember] > t2[SortMember]
 end
-local SortByMemberReverse = function (t1, t2)
+local SortByMemberReverse = function(t1, t2)
 	return t1[SortMember] < t2[SortMember]
 end
 
-DF.SortFunctions = {
+detailsFramework.SortFunctions = {
 	Sort = function(self, thisTable, memberName, isReverse)
 		SortMember = memberName
 		if (not isReverse) then
@@ -381,6 +686,3 @@ DF.SortFunctions = {
 		end
 	end
 }
-
-
-
