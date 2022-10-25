@@ -112,6 +112,7 @@ function scriptLibrary.OpenImportExport(isImport, isExport, scriptObjectToExport
 
     if (isImport) then
         --just wait the player paste the string and hit okay
+        bigTextEditor:SetFocus(true)
 
     elseif (isExport) then
         local exportString = scriptLibrary.ImportExport.ScriptToString(scriptObjectToExport)

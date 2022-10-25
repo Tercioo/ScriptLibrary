@@ -89,10 +89,10 @@ function scriptLibrary.CreateMainOptionsFrame()
         local createNewCode = function()
             scriptLibrary.CreateNewScript()
         end
-        local createNewCodeButton = DF:CreateButton(scriptInfoFrame, createNewCode, 40, 40, "", -1, nil, nil, "CreateButton", nil, nil, DF:GetTemplate("button", "OPTIONS_BUTTON_TEMPLATE"), DF:GetTemplate("font", "CODE_BUTTON"))
+        local createNewCodeButton = DF:CreateButton(scriptInfoFrame, createNewCode, 32, 32, "", -1, nil, nil, "CreateButton", nil, nil, DF:GetTemplate("button", "OPTIONS_BUTTON_TEMPLATE"), DF:GetTemplate("font", "CODE_BUTTON"))
         createNewCodeButton:SetIcon([[Interface\BUTTONS\UI-PlusButton-Up]], 20, 20, "overlay", {0, 1, 0, 1})
         mainFrame.CreateNewCodeButton = createNewCodeButton
-        createNewCodeButton.nameLabel = DF:CreateLabel(createNewCodeButton, "NEW")
+        createNewCodeButton.nameLabel = DF:CreateLabel(createNewCodeButton, "New", 10)
         createNewCodeButton.nameLabel:SetPoint("top", createNewCodeButton, "bottom", 0, -1)
 
         --create import button
@@ -100,10 +100,10 @@ function scriptLibrary.CreateMainOptionsFrame()
             --show the import window
             scriptLibrary.OpenImportExport(true)
         end
-        local importCodeButton = DF:CreateButton(scriptInfoFrame, openImport, 40, 40, "", -1, nil, nil, "ImportButton", nil, nil, DF:GetTemplate("button", "OPTIONS_BUTTON_TEMPLATE"), DF:GetTemplate("font", "CODE_BUTTON"))
+        local importCodeButton = DF:CreateButton(scriptInfoFrame, openImport, 32, 32, "", -1, nil, nil, "ImportButton", nil, nil, DF:GetTemplate("button", "OPTIONS_BUTTON_TEMPLATE"), DF:GetTemplate("font", "CODE_BUTTON"))
         importCodeButton:SetIcon([[Interface\BUTTONS\UI-PlusButton-Up]], 20, 20, "overlay", {0, 1, 0, 1})
         mainFrame.ImportButton = importCodeButton
-        importCodeButton.nameLabel = DF:CreateLabel(importCodeButton, "IMPORT")
+        importCodeButton.nameLabel = DF:CreateLabel(importCodeButton, "Import", 10)
         importCodeButton.nameLabel:SetPoint("top", importCodeButton, "bottom", 0, -1)
 
         --textentry to insert the name of the code
@@ -214,6 +214,34 @@ function scriptLibrary.CreateMainOptionsFrame()
         errortextLabel:SetPoint("left", errortextFrame, "left", 3, 0)
 
         codeEditor.NextCodeCheck = 0.33
+
+        local saveFrame = CreateFrame("frame", nil, codeEditor.editbox)
+        saveFrame:SetPropagateKeyboardInput(true)
+
+        local readKeyDownEventsFunc = function(self, keyDown)
+            if (keyDown == "S") then
+                if (IsControlKeyDown()) then
+                    scriptLibrary.SaveCode()
+                    codeEditor.editbox:SetFocus(true)
+                    mainFrame.SaveButton.animationHub:Play()
+                end
+
+            elseif (keyDown == "R") then
+                if (IsControlKeyDown()) then
+                    scriptLibrary.ReplaceCode()
+                    codeEditor.editbox:SetFocus(true)
+                    mainFrame.ReplaceButton.animationHub:Play()
+                end
+            end
+        end
+
+        codeEditor.editbox:HookScript("OnEditFocusGained", function()
+            saveFrame:SetScript("OnKeyDown", readKeyDownEventsFunc)
+        end)
+
+        codeEditor.editbox:HookScript("OnEditFocusLost", function()
+            saveFrame:SetScript("OnKeyDown", nil)
+        end)
 
         codeEditor.editbox:HookScript("OnEnterPressed", function()
             --don't lose the focus of the editor when shift pressed
@@ -327,6 +355,12 @@ function scriptLibrary.CreateMainOptionsFrame()
             feedbackExecuteButton_Texture:SetDrawLayer("overlay", 7)
             feedbackExecuteButton_Texture:SetAlpha (0)
 
+            local feedbackReplaceButton_Texture = replaceButton:CreateTexture(nil, "overlay")
+            feedbackReplaceButton_Texture:SetColorTexture(1, 1, 1)
+            feedbackReplaceButton_Texture:SetAllPoints()
+            feedbackReplaceButton_Texture:SetDrawLayer("overlay", 7)
+            feedbackReplaceButton_Texture:SetAlpha (0)
+
             local feedbackSaveButton_FlashAnimation = DF:CreateAnimationHub(feedbackSaveButton_Texture)
             DF:CreateAnimation(feedbackSaveButton_FlashAnimation, "alpha", 1, 0.08, 0, 0.2)
             DF:CreateAnimation(feedbackSaveButton_FlashAnimation, "alpha", 2, 0.08, 0.4, 0)
@@ -335,8 +369,13 @@ function scriptLibrary.CreateMainOptionsFrame()
             DF:CreateAnimation(feedbackExecuteButton_FlashAnimation, "alpha", 1, 0.08, 0, 0.2)
             DF:CreateAnimation(feedbackExecuteButton_FlashAnimation, "alpha", 2, 0.08, 0.4, 0)
 
+            local feedbackReplaceButton_FlashAnimation = DF:CreateAnimationHub(feedbackReplaceButton_Texture)
+            DF:CreateAnimation(feedbackReplaceButton_FlashAnimation, "alpha", 1, 0.08, 0, 0.2)
+            DF:CreateAnimation(feedbackReplaceButton_FlashAnimation, "alpha", 2, 0.08, 0.4, 0)
+
             local feedbackSaveButton_Animation = DF:CreateAnimationHub(saveButton, function() feedbackSaveButton_FlashAnimation:Play() end)
             local feedbackExecuteButton_Animation = DF:CreateAnimationHub(executeButton, function() feedbackExecuteButton_FlashAnimation:Play() end)
+            local feedbackReplaceButton_Animation = DF:CreateAnimationHub(replaceButton, function() feedbackExecuteButton_FlashAnimation:Play() end)
 
             local speed = 0.06
             local rotation = 0
@@ -346,24 +385,31 @@ function scriptLibrary.CreateMainOptionsFrame()
             DF:CreateAnimation(feedbackSaveButton_Animation, "rotation", 1, speed, -rotation)
             DF:CreateAnimation(feedbackExecuteButton_Animation, "translation", 1, speed, 0, -translation)
             DF:CreateAnimation(feedbackExecuteButton_Animation, "rotation", 1, speed, -rotation)
+            DF:CreateAnimation(feedbackReplaceButton_Animation, "translation", 1, speed, 0, -translation)
+            DF:CreateAnimation(feedbackReplaceButton_Animation, "rotation", 1, speed, -rotation)
 
             DF:CreateAnimation(feedbackSaveButton_Animation, "translation", 2, speed, 0, translation)
             DF:CreateAnimation(feedbackSaveButton_Animation, "rotation", 2, speed, rotation)
             DF:CreateAnimation(feedbackExecuteButton_Animation, "translation", 2, speed, 0, translation)
             DF:CreateAnimation(feedbackExecuteButton_Animation, "rotation", 2, speed, rotation)
+            DF:CreateAnimation(feedbackReplaceButton_Animation, "translation", 2, speed, 0, translation)
+            DF:CreateAnimation(feedbackReplaceButton_Animation, "rotation", 2, speed, rotation)
 
             DF:CreateAnimation(feedbackSaveButton_Animation, "rotation", 3, speed, rotation)
             DF:CreateAnimation(feedbackSaveButton_Animation, "rotation", 4, speed, -rotation)
             DF:CreateAnimation(feedbackExecuteButton_Animation, "rotation", 3, speed, rotation)
             DF:CreateAnimation(feedbackExecuteButton_Animation, "rotation", 4, speed, -rotation)
+            DF:CreateAnimation(feedbackReplaceButton_Animation, "rotation", 3, speed, rotation)
+            DF:CreateAnimation(feedbackReplaceButton_Animation, "rotation", 4, speed, -rotation)
 
             saveButton.animationHub = feedbackSaveButton_Animation
             executeButton.animationHub = feedbackExecuteButton_Animation
+            replaceButton.animationHub = feedbackReplaceButton_Animation
 
         --set points
         local xStart = 10
-        mainFrame.CreateNewCodeButton:SetPoint("topleft", mainFrame, "topleft", xStart, -30)
-        mainFrame.ImportButton:SetPoint("left", mainFrame.CreateNewCodeButton, "right", 2, 0)
+        mainFrame.CreateNewCodeButton:SetPoint("topleft", mainFrame, "topleft", xStart, -27)
+        mainFrame.ImportButton:SetPoint("left", mainFrame.CreateNewCodeButton, "right", 5, 0)
 
         mainFrame.CodeNameLabel:SetPoint("topleft", mainFrame.CreateNewCodeButton, "bottomleft", 0, -15)
         mainFrame.CodeIconLabel:SetPoint("topleft", mainFrame.CodeNameLabel, "bottomleft", 0, -30)
