@@ -30,7 +30,7 @@ function scriptLibrary.CreateMainOptionsFrame()
         --create options frame
         local mainFrame = DF:CreateSimplePanel(UIParent, optionsFrameSettings.width, optionsFrameSettings.height, "Script Library", "RuntimeEditorMainWindow", panel_options, db)
         mainFrame:SetPoint("center", UIParent, "center", 0, 0)
-        mainFrame:SetFrameStrata("LOW")
+        mainFrame:SetFrameStrata("HIGH")
         DetailsFramework:ApplyStandardBackdrop(mainFrame)
 
         local bottomGradient = DF:CreateTexture(mainFrame, {gradient = "vertical", fromColor = {0, 0, 0, 0.4}, toColor = "transparent"}, 1, 120, "artwork", {0, 1, 0, 1}, "bottomGradient")
@@ -68,8 +68,6 @@ function scriptLibrary.CreateMainOptionsFrame()
         DF:SetFontColor(statusBar.text, "gray")
 
         scriptLibrary.MainFrame = mainFrame
-
-
 
     --> create the top left frames which shows the script information like name and description
         --create the frame base of the script info
@@ -214,6 +212,51 @@ function scriptLibrary.CreateMainOptionsFrame()
         errortextLabel:SetPoint("left", errortextFrame, "left", 3, 0)
 
         codeEditor.NextCodeCheck = 0.33
+
+        --create tabs for pages
+        local createPageTabs = function()
+            local allTabs = {}
+            for i = 1, 6 do
+                local tabFrame = CreateFrame("button", "CodeTabLALA" .. i, mainFrame)
+                tabFrame:SetSize(50, 20)
+                --DF:ApplyStandardBackdrop(tabFrame)
+
+                tabFrame.Left = tabFrame:CreateTexture(nil, "overlay")
+                tabFrame.Right = tabFrame:CreateTexture(nil, "overlay")
+                tabFrame.Middle = tabFrame:CreateTexture(nil, "overlay")
+                tabFrame.Text = tabFrame:CreateFontString(nil, "overlay", "GameFontNormal")
+
+                tabFrame.Text:SetPoint("center", 0, 0)
+
+                tabFrame.Left:SetPoint("bottomleft", tabFrame, "bottomleft", 0, 0)
+                tabFrame.Left:SetPoint("topleft", tabFrame, "topleft", 0, 0)
+
+                tabFrame.Right:SetPoint("bottomright", tabFrame, "bottomright", 0, 0)
+                tabFrame.Right:SetPoint("topright", tabFrame, "topright", 0, 0)
+
+                tabFrame.Middle:SetPoint("topleft", tabFrame.Left, "topright", 0, 0)
+                tabFrame.Middle:SetPoint("topright", tabFrame.Right, "topleft", 0, 0)
+
+                tabFrame.Left:SetAtlas("Options_Tab_Left")
+                tabFrame.Left:SetWidth(2)
+                tabFrame.Right:SetAtlas("Options_Tab_Right")
+                tabFrame.Right:SetWidth(2)
+                tabFrame.Middle:SetAtlas("Options_Tab_Middle")
+                tabFrame.Middle:SetHeight(20)
+                tabFrame.Text:SetText("tab" .. i)
+
+                allTabs[#allTabs+1] = tabFrame
+
+                tabFrame:ClearAllPoints()
+                if (i == 1) then
+                    tabFrame:SetPoint("bottomleft", mainFrame.CodeEditor, "topleft", 0, 1)
+                else
+                    tabFrame:SetPoint("left", allTabs[i-1], "right", 2, 0)
+                end
+            end
+        end
+
+        createPageTabs()
 
         local saveFrame = CreateFrame("frame", nil, codeEditor.editbox)
         saveFrame:SetPropagateKeyboardInput(true)
@@ -416,7 +459,7 @@ function scriptLibrary.CreateMainOptionsFrame()
         mainFrame.CodeDescLabel:SetPoint("topleft", mainFrame.CodeIconLabel, "bottomleft", 0, -30)
         mainFrame.CodeSearchLabel:SetPoint("topleft", mainFrame.CodeDescLabel, "bottomleft", 0, -30)
 
-        addonNameLabel:SetPoint("bottomleft", codeEditor, "topleft", 0, 120)
+        addonNameLabel:SetPoint("bottomleft", codeEditor, "topleft", 0, 140)
         functionNameLabel:SetPoint("bottomleft", addonNameLabel, "topleft", 0, -32)
         argumentsLabel:SetPoint("bottomleft", functionNameLabel, "topleft", 0, -32)
 

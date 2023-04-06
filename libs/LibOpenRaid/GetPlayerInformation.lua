@@ -15,6 +15,20 @@ local CONST_TALENT_VERSION_CLASSIC = 1
 local CONST_TALENT_VERSION_LEGION = 4
 local CONST_TALENT_VERSION_DRAGONFLIGHT = 5
 
+local CONST_BTALENT_VERSION_COVENANTS = 9
+
+local CONST_SPELLBOOK_CLASSSPELLS_TABID = 2
+local CONST_SPELLBOOK_GENERAL_TABID = 1
+local CONST_ISITEM_BY_TYPEID = {
+    [10] = true, --healing items
+    [11] = true, --attack items
+    [12] = true, --utility items
+}
+
+local GetItemInfo = GetItemInfo
+local GetItemStats = GetItemStats
+local GetInventoryItemLink = GetInventoryItemLink
+
 local isTimewalkWoW = function()
     local _, _, _, buildInfo = GetBuildInfo()
     if (buildInfo < 40000) then
@@ -26,19 +40,72 @@ local IsDragonflight = function()
 	return select(4, GetBuildInfo()) >= 100000
 end
 
+local IsShadowlands = function()
+    local versionString, revision, launchDate, gameVersion = GetBuildInfo()
+    if (gameVersion >= 90000 and gameVersion < 100000) then
+        return true
+    end
+end
+
+--information about the player character to send, each expansion has its own system and data can be different
+--it's always a number
+function openRaidLib.UnitInfoManager.GetPlayerInfo1()
+    if (IsShadowlands()) then
+        --return the renown level within the player covenant
+        local renown = C_CovenantSanctumUI.GetRenownLevel() or 1
+        return renown
+    end
+
+    return 0
+end
+
+--information about the player character to send, each expansion has its own system and data can be different
+--it's always a number
+function openRaidLib.UnitInfoManager.GetPlayerInfo2()
+    if (IsShadowlands()) then
+        --return which covenant the player picked
+        local covenant = C_Covenants.GetActiveCovenantID() or 0
+        return covenant
+    end
+
+    return 0
+end
+
+--default player class-spec talent system
 function openRaidLib.GetTalentVersion()
     local _, _, _, buildInfo = GetBuildInfo()
-    local gamePatch = buildInfo / 10000
-    if (gamePatch >= 1 and gamePatch <= 4) then --vanilla tbc wotlk cataclysm
+
+    if (buildInfo >= 1 and buildInfo <= 40000) then --vanilla tbc wotlk cataclysm
         return CONST_TALENT_VERSION_CLASSIC
     end
 
-    if (gamePatch >= 7 and gamePatch <= 9) then --legion bfa shadowlands
+    if (buildInfo >= 70000 and buildInfo <= 100000) then --legion bfa shadowlands
         return CONST_TALENT_VERSION_LEGION
     end
 
-    if (gamePatch >= 10 and gamePatch <= 20) then --dragonflight
+    if (buildInfo >= 100000 and buildInfo <= 200000) then --dragonflight
         return CONST_TALENT_VERSION_DRAGONFLIGHT
+    end
+end
+
+--secondary talent tree, can be a legendary weapon talent tree, covenant talent tree, etc...
+function openRaidLib.GetBorrowedTalentVersion()
+    if (IsShadowlands()) then
+        return CONST_BTALENT_VERSION_COVENANTS
+    end
+end
+
+local getDragonflightTalentsExportedString = function()
+    local exportStream = ExportUtil.MakeExportDataStream()
+	local configId = C_ClassTalents.GetActiveConfigID()
+    if (configId) then
+        local configInfo = C_Traits.GetConfigInfo(configId)
+	    local currentSpecID = PlayerUtil.GetCurrentSpecID()
+        local treeInfo = C_Traits.GetTreeInfo(configId, configInfo.treeIDs[1])
+        local treeHash = C_Traits.GetTreeHash(treeInfo.ID)
+        local serializationVersion = C_Traits.GetLoadoutSerializationVersion()
+
+        
     end
 end
 
@@ -164,12 +231,8 @@ function openRaidLib.GetPlayerSpecId()
     end
 end
 
+--borrowed talent tree from shadowlands
 function openRaidLib.UnitInfoManager.GetPlayerConduits()
-
-    if (IsDragonflight()) then
-        return {}
-    end
-
     local conduits = {}
     local soulbindID = C_Soulbinds.GetActiveSoulbindID()
 
@@ -214,6 +277,17 @@ function openRaidLib.UnitInfoManager.GetPlayerConduits()
     return conduits
 end
 
+function openRaidLib.UnitInfoManager.GetPlayerBorrowedTalents()
+    local borrowedTalentVersion = openRaidLib.GetBorrowedTalentVersion()
+
+    if (borrowedTalentVersion == CONST_BTALENT_VERSION_COVENANTS) then
+        return openRaidLib.UnitInfoManager.GetPlayerConduits()
+    end
+
+    return {}
+end
+
+
 function openRaidLib.GearManager.GetPlayerItemLevel()
     if (_G.GetAverageItemLevel) then
         local _, itemLevel = GetAverageItemLevel()
@@ -227,20 +301,29 @@ end
 --return an integer between zero and one hundret indicating the player gear durability
 function openRaidLib.GearManager.GetPlayerGearDurability()
     local durabilityTotalPercent, totalItems = 0, 0
+    --hold the lowest item durability of all the player gear
+    --this prevent the case where the player has an average of 80% durability but an item with 15% durability
+    local lowestGearDurability = 100
+
     for i = INVSLOT_FIRST_EQUIPPED, INVSLOT_LAST_EQUIPPED do
         local durability, maxDurability = GetInventoryItemDurability(i)
         if (durability and maxDurability) then
             local itemDurability = durability / maxDurability * 100
+
+            if (itemDurability < lowestGearDurability) then
+                lowestGearDurability = itemDurability
+            end
+
             durabilityTotalPercent = durabilityTotalPercent + itemDurability
             totalItems = totalItems + 1
         end
     end
 
     if (totalItems == 0) then
-        return 100
+        return 100, lowestGearDurability
     end
 
-    return floor(durabilityTotalPercent / totalItems)
+    return floor(durabilityTotalPercent / totalItems), lowestGearDurability
 end
 
 function openRaidLib.GearManager.GetPlayerWeaponEnchant()
@@ -261,6 +344,8 @@ function openRaidLib.GearManager.GetPlayerGemsAndEnchantInfo()
     --hold equipmentSlotId of equipments without an enchant
     local slotsWithoutEnchant = {}
 
+    local gearWithEnchantIds = {}
+
     for equipmentSlotId = 1, 17 do
         local itemLink = GetInventoryItemLink("player", equipmentSlotId)
         if (itemLink) then
@@ -268,41 +353,27 @@ function openRaidLib.GearManager.GetPlayerGemsAndEnchantInfo()
             local _, itemId, enchantId, gemId1, gemId2, gemId3, gemId4, suffixId, uniqueId, levelOfTheItem, specId, upgradeInfo, instanceDifficultyId, numBonusIds, restLink = strsplit(":", itemLink)
             local gemsIds = {gemId1, gemId2, gemId3, gemId4}
 
-            --> enchant
+            --enchant
                 --check if the slot can receive enchat and if the equipment has an enchant
                 local enchantAttribute = LIB_OPEN_RAID_ENCHANT_SLOTS[equipmentSlotId]
-                if (enchantAttribute) then --this slot can receive an enchat
+                local nEnchantId = 0
 
-                    --check if this slot is relevant for the class, some slots can have enchants only for Agility which won't matter for Priests as an example
-                    --if the value is an integer it points to an attribute (int, dex, str), otherwise it's true (boolean)
-                    local slotIsRelevant = true
-                    if (type (enchantAttribute) == "number") then
-                        if (specMainAttribute ~= enchantAttribute) then
-                            slotIsRelevant = false
-                        end
+                if (enchantAttribute) then --this slot can receive an enchant
+                    if (enchantId and enchantId ~= "") then
+                        local number = tonumber(enchantId)
+                        nEnchantId = number
+                        gearWithEnchantIds[#gearWithEnchantIds+1] = nEnchantId
+                    else
+                        gearWithEnchantIds[#gearWithEnchantIds+1] = 0
                     end
 
-                    if (slotIsRelevant) then
-                        --does the slot has any enchant?
-                        if (not enchantId or enchantId == "0" or enchantId == "") then
-                            slotsWithoutEnchant[#slotsWithoutEnchant+1] = equipmentSlotId
-                        else
-                            --convert to integer
-                            local enchantIdInt = tonumber(enchantId)
-                            if (enchantIdInt) then
-                                --does the enchant is relevent for the character?
-                                if (not LIB_OPEN_RAID_ENCHANT_IDS[enchantIdInt]) then
-                                    slotsWithoutEnchant[#slotsWithoutEnchant+1] = equipmentSlotId
-                                end
-                            else
-                                --the enchat has an invalid id
-                                slotsWithoutEnchant[#slotsWithoutEnchant+1] = equipmentSlotId
-                            end
-                        end
+                    --6400 and above is dragonflight enchantId number space
+                    if (nEnchantId < 6300 and not LIB_OPEN_RAID_DEATHKNIGHT_RUNEFORGING_ENCHANT_IDS[nEnchantId]) then
+                        slotsWithoutEnchant[#slotsWithoutEnchant+1] = equipmentSlotId
                     end
                 end
 
-            --> gems
+            --gems
                 local itemStatsTable = {}
                 --fill the table above with information about the item
                 GetItemStats(itemLink, itemStatsTable)
@@ -316,7 +387,7 @@ function openRaidLib.GearManager.GetPlayerGemsAndEnchantInfo()
                             slotsWithoutGems[#slotsWithoutGems+1] = equipmentSlotId
 
                         --check if the gem is not a valid gem (deprecated gem)
-                        elseif (not LIB_OPEN_RAID_GEM_IDS[gemId]) then
+                        elseif (gemId < 180000) then
                             slotsWithoutGems[#slotsWithoutGems+1] = equipmentSlotId
                         end
                     end
@@ -325,6 +396,60 @@ function openRaidLib.GearManager.GetPlayerGemsAndEnchantInfo()
     end
 
     return slotsWithoutGems, slotsWithoutEnchant
+end
+
+function openRaidLib.GearManager.BuildPlayerEquipmentList()
+    local equipmentList = {}
+    local debug
+    for equipmentSlotId = 1, 17 do
+        local itemLink = GetInventoryItemLink("player", equipmentSlotId)
+        if (itemLink) then
+            local itemStatsTable = {}
+            local itemID, enchantID, gemID1, gemID2, gemID3, gemID4, suffixID, uniqueID, linkLevel, specializationID, modifiersMask, itemContext = select(2, strsplit(":", itemLink))
+            itemID = tonumber(itemID)
+
+            local effectiveILvl, isPreview, baseILvl = GetDetailedItemLevelInfo(itemLink)
+            if (not effectiveILvl) then
+                openRaidLib.mainControl.scheduleUpdatePlayerData()
+                effectiveILvl = 0
+                openRaidLib.__errors[#openRaidLib.__errors+1] = "Fail to get Item Level: " .. (itemID or "invalid itemID") .. " " .. (itemLink and itemLink:gsub("|H", "") or "invalid itemLink")
+            end
+
+            GetItemStats(itemLink, itemStatsTable)
+            local gemSlotsAvailable = itemStatsTable and itemStatsTable.EMPTY_SOCKET_PRISMATIC or 0
+
+            local noPrefixItemLink = itemLink : gsub("^|c%x%x%x%x%x%x%x%x|Hitem", "")
+            local linkTable = {strsplit(":", noPrefixItemLink)}
+            local numModifiers = linkTable[14]
+            numModifiers = numModifiers and tonumber(numModifiers) or 0
+
+            for i = #linkTable, 14 + numModifiers + 1, -1 do
+                tremove(linkTable, i)
+            end
+
+            local newItemLink = table.concat(linkTable, ":")
+            newItemLink = newItemLink
+            equipmentList[#equipmentList+1] = {equipmentSlotId, gemSlotsAvailable, effectiveILvl, newItemLink}
+
+            if (equipmentSlotId == 2) then
+                debug = {itemLink:gsub("|H", ""), newItemLink}
+            end
+        end
+    end
+
+    --[[ debug
+    local str = ""
+    for i = 1, #equipmentList do
+        local t = equipmentList[i]
+        local s = t[1] .. "," .. t[2] .. "," .. t[3] .. "," .. t[4]
+        str = str .. s
+    end
+
+    table.insert(debug, str)
+    dumpt(debug)
+    --]]
+
+    return equipmentList
 end
 
 local playerHasPetOfNpcId = function(npcId)
@@ -343,60 +468,178 @@ local playerHasPetOfNpcId = function(npcId)
 end
 
 local addCooldownToTable = function(cooldowns, cooldownsHash, cooldownSpellId, timeNow)
+    local timeLeft, charges, startTimeOffset, duration, auraDuration = openRaidLib.CooldownManager.GetPlayerCooldownStatus(cooldownSpellId)
+
     cooldowns[#cooldowns+1] = cooldownSpellId
-    local timeLeft, charges, startTimeOffset, duration = openRaidLib.CooldownManager.GetPlayerCooldownStatus(cooldownSpellId)
     cooldowns[#cooldowns+1] = timeLeft
     cooldowns[#cooldowns+1] = charges
     cooldowns[#cooldowns+1] = startTimeOffset
     cooldowns[#cooldowns+1] = duration
-    cooldownsHash[cooldownSpellId] = {timeLeft, charges, startTimeOffset, duration, timeNow}
+    cooldowns[#cooldowns+1] = auraDuration
+
+    cooldownsHash[cooldownSpellId] = {timeLeft, charges, startTimeOffset, duration, timeNow, auraDuration}
 end
 
 local canAddCooldown = function(cooldownInfo)
-        local needPetNpcId = cooldownInfo.pet
-    if (needPetNpcId) then
-        if (not playerHasPetOfNpcId(needPetNpcId)) then
+    local petNpcIdNeeded = cooldownInfo.pet
+    if (petNpcIdNeeded) then
+        if (not playerHasPetOfNpcId(petNpcIdNeeded)) then
             return false
         end
     end
     return true
 end
 
+local getSpellListAsHashTableFromSpellBook = function()
+    local completeListOfSpells = {}
+
+    --this line might not be compatible with classic
+    local specId, specName, _, specIconTexture = GetSpecializationInfo(GetSpecialization())
+    --local classNameLoc, className, classId = UnitClass("player") --not in use
+    local locPlayerRace, playerRace, playerRaceId = UnitRace("player")
+
+    --get racials from the general tab
+    local tabName, tabTexture, offset, numSpells, isGuild, offspecId = GetSpellTabInfo(CONST_SPELLBOOK_GENERAL_TABID)
+    offset = offset + 1
+    local tabEnd = offset + numSpells
+    for entryOffset = offset, tabEnd - 1 do
+        local spellType, spellId = GetSpellBookItemInfo(entryOffset, "player")
+        if (spellId and LIB_OPEN_RAID_COOLDOWNS_INFO[spellId] and LIB_OPEN_RAID_COOLDOWNS_INFO[spellId].raceid == playerRaceId) then
+            spellId = C_SpellBook.GetOverrideSpell(spellId)
+            local spellName = GetSpellInfo(spellId)
+            local bIsPassive = IsPassiveSpell(spellId, "player")
+            if (spellName and not bIsPassive) then
+                completeListOfSpells[spellId] = true
+            end
+        end
+    end
+
+	--get spells from the Spec spellbook
+    for i = 1, GetNumSpellTabs() do
+        local tabName, tabTexture, offset, numSpells, isGuild, offspecId = GetSpellTabInfo(i)
+        if (tabTexture == specIconTexture) then
+            offset = offset + 1
+            local tabEnd = offset + numSpells
+            for entryOffset = offset, tabEnd - 1 do
+                local spellType, spellId = GetSpellBookItemInfo(entryOffset, "player")
+                if (spellId) then
+                    if (spellType == "SPELL") then
+                        spellId = C_SpellBook.GetOverrideSpell(spellId)
+                        local spellName = GetSpellInfo(spellId)
+                        local bIsPassive = IsPassiveSpell(spellId, "player")
+                        if LIB_OPEN_RAID_MULTI_OVERRIDE_SPELLS[spellId] then
+                            for _, overrideSpellId in pairs(LIB_OPEN_RAID_MULTI_OVERRIDE_SPELLS[spellId]) do
+                                completeListOfSpells[overrideSpellId] = true
+                            end
+                        elseif (spellName and not bIsPassive) then
+                            completeListOfSpells[spellId] = true
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    --get class shared spells from the spell book
+    local tabName, tabTexture, offset, numSpells, isGuild, offspecId = GetSpellTabInfo(CONST_SPELLBOOK_CLASSSPELLS_TABID)
+    offset = offset + 1
+    local tabEnd = offset + numSpells
+    for entryOffset = offset, tabEnd - 1 do
+        local spellType, spellId = GetSpellBookItemInfo(entryOffset, "player")
+        if (spellId) then
+            if (spellType == "SPELL") then
+                spellId = C_SpellBook.GetOverrideSpell(spellId)
+                local spellName = GetSpellInfo(spellId)
+                local bIsPassive = IsPassiveSpell(spellId, "player")
+                if LIB_OPEN_RAID_MULTI_OVERRIDE_SPELLS[spellId] then
+                    for _, overrideSpellId in pairs(LIB_OPEN_RAID_MULTI_OVERRIDE_SPELLS[spellId]) do
+                        completeListOfSpells[overrideSpellId] = true
+                    end
+                elseif (spellName and not bIsPassive) then
+                    completeListOfSpells[spellId] = true
+                end
+            end
+        end
+    end
+
+    local getNumPetSpells = function()
+        --'HasPetSpells' contradicts the name and return the amount of pet spells available instead of a boolean
+        return HasPetSpells()
+    end
+
+    --get pet spells from the pet spellbook 
+    local numPetSpells = getNumPetSpells()
+    if (numPetSpells) then
+        for i = 1, numPetSpells do
+            local spellName, _, unmaskedSpellId = GetSpellBookItemName(i, "pet")
+            if (unmaskedSpellId) then
+                unmaskedSpellId = C_SpellBook.GetOverrideSpell(unmaskedSpellId)
+                local bIsPassive = IsPassiveSpell(unmaskedSpellId, "pet")
+                if (spellName and not bIsPassive) then
+                    completeListOfSpells[unmaskedSpellId] = true
+                end
+            end
+        end
+    end
+
+    return completeListOfSpells
+end
+
+local updateCooldownAvailableList = function()
+    table.wipe(LIB_OPEN_RAID_PLAYERCOOLDOWNS)
+    local _, playerClass = UnitClass("player")
+    local locPlayerRace, playerRace, playerRaceId = UnitRace("player")
+    local spellBookSpellList = getSpellListAsHashTableFromSpellBook()
+
+    --build a list of all spells assigned as cooldowns for the player class
+    for spellID, spellData in pairs(LIB_OPEN_RAID_COOLDOWNS_INFO) do
+        --type 10 is an item cooldown and does not have a class or raceid
+        if (spellData.class == playerClass or spellData.raceid == playerRaceId or CONST_ISITEM_BY_TYPEID[spellData.type]) then --need to implement here to get the racial as racial cooldowns does not carry a class
+            --type 10 is an item cooldown and does not have a spellbook entry
+            if (spellBookSpellList[spellID] or CONST_ISITEM_BY_TYPEID[spellData.type]) then
+                LIB_OPEN_RAID_PLAYERCOOLDOWNS[spellID] = spellData
+            end
+        end
+    end
+end
+
 --build a list with the local player cooldowns
 --called only from SendAllPlayerCooldowns()
 function openRaidLib.CooldownManager.GetPlayerCooldownList()
-    --get the player specId
-    local specId = openRaidLib.GetPlayerSpecId()
-    if (specId) then
-        --get the cooldowns for the specialization
-        local playerCooldowns = LIB_OPEN_RAID_COOLDOWNS_BY_SPEC[specId]
-        if (not playerCooldowns) then
-            openRaidLib.DiagnosticError("CooldownManager|GetPlayerCooldownList|can't find player cooldowns for specId:", specId)
-            return {}, {}
-        end
+    --update the list of cooldowns the player has available
+    if (IsDragonflight()) then
+        --this fill the global LIB_OPEN_RAID_PLAYERCOOLDOWNS
+        updateCooldownAvailableList()
 
-        local cooldowns = {} --table to ship on comm
-        local cooldownsHash = {} --table with [spellId] = cooldownInfo
-        local talentsHash = openRaidLib.UnitInfoManager.GetPlayerTalentsAsPairsTable()
-        local timeNow = GetTime()
+        --get the player specId
+        local specId = openRaidLib.GetPlayerSpecId()
+        if (specId) then
+            --get the cooldowns for the specialization
+            local playerCooldowns = LIB_OPEN_RAID_PLAYERCOOLDOWNS
+            if (not playerCooldowns) then
+                openRaidLib.DiagnosticError("CooldownManager|GetPlayerCooldownList|LIB_OPEN_RAID_PLAYERCOOLDOWNS is nil")
+                return {}, {}
+            end
 
-        for cooldownSpellId, cooldownType in pairs(playerCooldowns) do
-            --get all the information about this cooldow
-            local cooldownInfo = LIB_OPEN_RAID_COOLDOWNS_INFO[cooldownSpellId]
-            if (cooldownInfo) then
+            local cooldowns = {} --table to ship on comm
+            local cooldownsHash = {} --table with [spellId] = cooldownInfo
+            local talentsHash = openRaidLib.UnitInfoManager.GetPlayerTalentsAsPairsTable()
+            local timeNow = GetTime()
+
+            for cooldownSpellId, cooldownInfo in pairs(playerCooldowns) do
                 --does this cooldown is based on a talent?
                 local talentId = cooldownInfo.talent
 
                 --check if the player has a talent which makes this cooldown unavailable
                 local ignoredByTalentId = cooldownInfo.ignoredIfTalent
-                local isIgnoredByTalentId = false
+                local bIsIgnoredByTalentId = false
                 if (ignoredByTalentId) then
                     if (talentsHash[ignoredByTalentId]) then
-                        isIgnoredByTalentId = true
+                        bIsIgnoredByTalentId = true
                     end
                 end
 
-                if (not isIgnoredByTalentId) then
+                if (not bIsIgnoredByTalentId) then
                     if (talentId) then
                         --check if the player has the talent selected
                         if (talentsHash[talentId]) then
@@ -411,45 +654,165 @@ function openRaidLib.CooldownManager.GetPlayerCooldownList()
                     end
                 end
             end
+            return cooldowns, cooldownsHash
+        else
+            return {}, {}
         end
-        return cooldowns, cooldownsHash
-    else
-        return {}, {}
+    end
+
+    return {}, {}
+end
+
+--aura frame handles only UNIT_AURA events to grab the duration of the buff placed by the aura
+local bIsNewUnitAuraAvailable = C_UnitAuras and C_UnitAuras.GetAuraDataBySlot and true
+
+local auraSpellID
+local auraDurationTime
+
+local handleBuffAura = function(aura)
+    local auraInfo = C_UnitAuras.GetAuraDataByAuraInstanceID("player", aura.auraInstanceID)
+    if (auraInfo) then
+        local spellId = auraInfo.spellId
+        if (auraSpellID == spellId) then
+            auraSpellID = nil
+            auraDurationTime = auraInfo.duration
+            return true
+        end
     end
 end
 
---check if a player cooldown is ready or if is in cooldown
---@spellId: the spellId to check for cooldown
+local getAuraDuration = function(spellId)
+    --some auras does not have the same spellId of the cast as the spell for its aura duration
+    --in these cases, it's necessary to declare the buff spellId which tells the duration of the effect by adding 'durationSpellId = spellId' within the cooldown data
+    if (not LIB_OPEN_RAID_PLAYERCOOLDOWNS[spellId]) then
+        --local spellname = GetSpellInfo(spellId)
+        --print("spell not found:", spellname)
+        return 0
+    end
+    local customBuffDuration = LIB_OPEN_RAID_PLAYERCOOLDOWNS[spellId].durationSpellId
+    --spellId = customBuffDuration or spellId --can't replace the spellId by customBuffDurationSpellId has it wount be found in LIB_OPEN_RAID_PLAYERCOOLDOWNS
+
+    if (bIsNewUnitAuraAvailable) then
+        local bBatchCount = false
+        local bUsePackedAura = true
+        auraSpellID = customBuffDuration or spellId
+        auraDurationTime = 0 --reset duration
+
+        AuraUtil.ForEachAura("player", "HELPFUL", bBatchCount, handleBuffAura, bUsePackedAura) --check auras to find a buff for the spellId
+
+        if (auraDurationTime == 0) then --if the buff wasn't found, attempt to get the duration from the file
+            return LIB_OPEN_RAID_PLAYERCOOLDOWNS[spellId].duration or 0
+        end
+        return auraDurationTime
+    else
+        --this is classic
+    end
+end
+
+---get the duration of a buff placed by a spell
+---@param spellId number
+---@return number duration
+function openRaidLib.CooldownManager.GetSpellBuffDuration(spellId)
+    return getAuraDuration(spellId)
+end
+
+---check if a player cooldown is ready or if is in cooldown
+---@spellId: the spellId to check for cooldown
+---@return number timeLeft
+---@return number charges
+---@return number startTimeOffset
+---@return number duration
+---@return number buffDuration
 function openRaidLib.CooldownManager.GetPlayerCooldownStatus(spellId)
     --check if is a charge spell
-    local cooldownInfo = LIB_OPEN_RAID_COOLDOWNS_INFO[spellId]
-    if (cooldownInfo) then
-        if (cooldownInfo.charges and cooldownInfo.charges > 1) then
-            local chargesAvailable, chargesTotal, start, duration = GetSpellCharges(spellId)
-
+    local spellData = LIB_OPEN_RAID_COOLDOWNS_INFO[spellId]
+    if (spellData) then
+        local buffDuration = getAuraDuration(spellId)
+        local chargesAvailable, chargesTotal, start, duration = GetSpellCharges(spellId)
+        if chargesAvailable then
             if (chargesAvailable == chargesTotal) then
-                return 0, chargesTotal, 0, 0 --all charges are ready to use
+                return 0, chargesTotal, 0, 0, 0 --all charges are ready to use
             else
                 --return the time to the next charge
                 local timeLeft = start + duration - GetTime()
                 local startTimeOffset = start - GetTime()
-                return ceil(timeLeft), chargesAvailable, startTimeOffset, duration --time left, charges, startTime
+                return ceil(timeLeft), chargesAvailable, startTimeOffset, duration, buffDuration
             end
-
         else
             local start, duration = GetSpellCooldown(spellId)
             if (start == 0) then --cooldown is ready
-                return 0, 1, 0, 0 --time left, charges, startTime
+                return 0, 1, 0, 0, 0 --time left, charges, startTime
             else
                 local timeLeft = start + duration - GetTime()
                 local startTimeOffset = start - GetTime()
-                return ceil(timeLeft), 0, ceil(startTimeOffset), duration --time left, charges, startTime, duration
+                return ceil(timeLeft), 0, ceil(startTimeOffset), duration, buffDuration --time left, charges, startTime, duration, buffDuration
             end
         end
     else
         return openRaidLib.DiagnosticError("CooldownManager|GetPlayerCooldownStatus()|cooldownInfo not found|", spellId)
     end
 end
+
+do
+    --make new namespace
+    openRaidLib.AuraTracker = {}
+
+    function openRaidLib.AuraTracker.ScanCallback(aura)
+        local unitId = openRaidLib.AuraTracker.CurrentUnitId
+        local thisUnitAuras = openRaidLib.AuraTracker.CurrentAuras[unitId]
+
+        local auraInfo = C_UnitAuras.GetAuraDataByAuraInstanceID(unitId, aura.auraInstanceID)
+        if (auraInfo) then
+            local spellId = auraInfo.spellId
+            if (spellId) then
+                thisUnitAuras[spellId] = true
+                openRaidLib.AuraTracker.AurasFoundOnScan[spellId] = true
+            end
+        end
+    end
+
+	function openRaidLib.AuraTracker.ScanUnitAuras(unitId)
+		local batchCount = nil
+		local usePackedAura = true
+        openRaidLib.AuraTracker.CurrentUnitId = unitId
+
+        openRaidLib.AuraTracker.AurasFoundOnScan = {}
+		AuraUtil.ForEachAura(unitId, "HELPFUL", batchCount, openRaidLib.AuraTracker.ScanCallback, usePackedAura)
+
+        local thisUnitAuras = openRaidLib.AuraTracker.CurrentAuras[unitId]
+        for spellId in pairs(thisUnitAuras) do
+            if (not openRaidLib.AuraTracker.AurasFoundOnScan[spellId]) then
+                --aura removed
+                openRaidLib.internalCallback.TriggerEvent("unitAuraRemoved", unitId, spellId)
+            end
+        end
+	end
+
+    --run when the open raid lib loads
+    function openRaidLib.AuraTracker.StartScanUnitAuras(unitId)
+        openRaidLib.AuraTracker.CurrentAuras = {
+            [unitId] = {}
+        }
+
+        local auraFrameEvent = CreateFrame("frame")
+        auraFrameEvent:RegisterUnitEvent("UNIT_AURA", unitId)
+
+        auraFrameEvent:SetScript("OnEvent", function()
+            openRaidLib.AuraTracker.ScanUnitAuras(unitId)
+        end)
+    end
+
+    --test case:
+    local debugModule = {}
+    function debugModule.AuraRemoved(event, unitId, spellId)
+        local spellName = GetSpellInfo(spellId)
+        --print("aura removed:", unitId, spellId, spellName)
+    end
+    openRaidLib.internalCallback.RegisterCallback("unitAuraRemoved", debugModule.AuraRemoved)
+
+end
+
+
 
 --which is the main attribute of each spec
 --1 Intellect

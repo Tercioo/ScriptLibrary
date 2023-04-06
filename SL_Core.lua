@@ -15,6 +15,7 @@ local bIsDebugging = false
 --this holds the object currently editing
 scriptLibrary.CurrentScriptObject = nil
 
+
 ----------------------------------------------------------------------------------------------------------------------------------------------------------
 --> script control
 
@@ -34,6 +35,29 @@ scriptLibrary.CurrentScriptObject = nil
 	end
 	]]
 
+	local scriptPagePrototype = {
+		Code = defaultCode,
+	}
+	
+	--add a new page into the current script being edited
+	function scriptLibrary.CreateNewPageForScript()
+		local scriptObject = scriptLibrary.GetCurrentScriptObject()
+		if (scriptObject) then
+			local newPage = DF.table.copy({}, scriptPagePrototype)
+			tinsert(scriptObject.Pages, newPage)
+			return true
+		end
+	end
+
+	--remove a page from the current script being edited
+	function scriptLibrary.RemovePageForScript(pageId)
+		local scriptObject = scriptLibrary.GetCurrentScriptObject()
+		if (scriptObject) then
+			local pageRemoved = tremove(scriptObject.Pages, pageId)
+			return pageRemoved and true
+		end
+	end
+
 	--build a template table to be used as a new script object
 	function scriptLibrary.CreateNewScript()
 		local newScriptObject = {
@@ -43,6 +67,7 @@ scriptLibrary.CurrentScriptObject = nil
 			Time = time(), --creation time
 			Revision = 1,
 			Code = defaultCode,
+			Pages = {},
 			CursorPosition = 1,
 			ScrollValue = 1,
 			AutoRun = false,

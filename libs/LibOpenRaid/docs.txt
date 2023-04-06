@@ -55,6 +55,12 @@ local isReady, normalizedPercent, timeLeft, charges, minValue, maxValue, current
 @spells: a table containing spellIds {spellId, spellId, spellId, ...}
 openRaidLib.AddCooldownFilter(filterName, spells)
 
+--get a list of filters which a spell has, returns a table in map format: {[filterName] = true}
+--@spellId: the ID of a spell
+--@defaultFilterOnly (bool): if true only return built-in filters, example: "defensive-raid", "ofensive".
+--@customFiltersOnly (bool): if true onlt return a list of custom filters where the spell was added.
+local filterListArray = openRaidLib.GetSpellFilters(spellId, defaultFilterOnly, customFiltersOnly)
+
 --request information about a spell for all units in the raid, units which has this cooldown will report back with a "CooldownUpdate" event
 openRaidLib.RequestCooldownInfo(spellId)
 
@@ -73,6 +79,19 @@ playerGear = {
     .noGems = {socketId}
     .noEnchants = {socketId}
     .weaponEnchant = number (oils)
+    .equippedGear = {
+        {
+            .slotId = number
+            .gemSlots = number
+            .itemLevel = number
+            .itemLink = string
+            .itemQuality = number
+            .itemId = number
+            .itemName = string
+            .enchantId = number
+            .gemId = number
+        }
+    }
 }
 
 
@@ -138,6 +157,20 @@ local requestSent = openRaidLib.RequestKeystoneDataFromParty()
 --request to players in your raid to send their keystone information
 --this call fails if not in a raid group
 local requestSent = openRaidLib.RequestKeystoneDataFromRaid()
+
+
+FLASK and FOOD buffs
+--@spellId: a regular spellId
+local flaskInfo = openRaidLib.GetFlaskInfoBySpellId(spellId)
+
+--@auraInfo: UnitAuraInfo -> https://wowpedia.fandom.com/wiki/Struct_UnitAuraInfo see C_UnitAuras.GetAuraDataBySlot()
+local flaskTier = openRaidLib.GetFlaskTierFromAura(auraInfo)
+
+--@spellId: a regular spellId
+local foodInfo = openRaidLib.GetFoodInfoBySpellId(spellId)
+
+--@auraInfo: UnitAuraInfo -> https://wowpedia.fandom.com/wiki/Struct_UnitAuraInfo see C_UnitAuras.GetAuraDataBySlot()
+local foodTier = openRaidLib.GetFoodTierFromAura(auraInfo)
 
 
 Callbacks:
@@ -267,7 +300,7 @@ openRaidLib.RegisterCallback(MyAddonObject, "CooldownRemoved", "OnUnitLostCooldo
 ===================================================================================================================================
 
 function MyAddonObject.OnCooldownListWipe(allUnitsCooldowns)
-    --print ("is nil:", next(allUnitsCooldowns))
+    --print("is nil:", next(allUnitsCooldowns))
 end
 
 --registering the callback:
@@ -289,10 +322,10 @@ function MyAddonObject.OnGearUpdate(unitId, unitGear, allUnitsGear)
     local noEnchantTable = unitGear.noEnchants
     local noGemsTable = unitGear.noGems
 
-    for index, slotIdWithoutEnchant in ipairs (noEnchantTable) do
+    for index, slotIdWithoutEnchant in ipairs(noEnchantTable) do
     end
 
-    for index, slotIdWithEmptyGemSocket in ipairs (noGemsTable) do
+    for index, slotIdWithEmptyGemSocket in ipairs(noGemsTable) do
     end
 end
 
@@ -315,7 +348,7 @@ openRaidLib.RegisterCallback(MyAddonObject, "GearDurabilityUpdate", "OnGearDurab
 ===================================================================================================================================
 
 function MyAddonObject.OnGearListWiped(allUnitsGear)
-    --print ("is nil:", next(allUnitsGear))
+    --print("is nil:", next(allUnitsGear))
 end
 
 --registering the callback:

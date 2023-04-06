@@ -1,4 +1,4 @@
-## Interface: 30400
+## Interface: 30401
 ## Title: Script Library
 ## Notes: An addon by Terciob, organize and save scripts which can be executed on demand or executed on login.
 ## SavedVariables: RuntimeEditorDB, ScriptLibraryDB
