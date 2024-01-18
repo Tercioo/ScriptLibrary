@@ -26,7 +26,7 @@ local availableWidgets = {
 }
 
 function scriptLibrary.CreateFrameEditor()
-    local mainFrame = scriptLibrary.MainFrame
+    local mainFrame = scriptLibrary.GetMainFrame()
 
     local espessuraRARA = 50
 

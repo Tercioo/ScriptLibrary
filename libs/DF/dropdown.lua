@@ -385,18 +385,19 @@ local canRunCallbackFunctionForOption = function(canRunCallback, optionTable, dr
 	end
 end
 
---if onlyShown is true it'll first create a table with visible options that has .shown and then select in this table the index passed (if byOptionNumber)
---@optionName: value or string shown in the name of the option
---@byOptionNumber: the option name is considered a number and selects the index of the menu
---@onlyShown: the selected option index when selecting by option number must be visible
---@runCallback: run the callback (onclick) function after selecting the option
-function DropDownMetaFunctions:Select(optionName, byOptionNumber, onlyShown, runCallback)
+---if bOnlyShown is true it'll first create a table with visible options that has .shown and then select in this table the index passed (if byOptionNumber)
+---@param optionName string value or string shown in the name of the option
+---@param byOptionNumber number the option name is considered a number and selects the index of the menu
+---@param bOnlyShown boolean the selected option index when selecting by option number must be visible
+---@param runCallback function run the callback (onclick) function after selecting the option
+---@return boolean
+function DropDownMetaFunctions:Select(optionName, byOptionNumber, bOnlyShown, runCallback)
 	if (type(optionName) == "boolean" and not optionName) then
 		self:NoOptionSelected()
 		return false
 	end
 
-	local optionsTable = DF:Dispatch(self.func, self)
+	local optionsTable = DF:Dispatch(self.func, self) --399
 
 	if (#optionsTable == 0) then
 		self:NoOption(true)
@@ -408,7 +409,7 @@ function DropDownMetaFunctions:Select(optionName, byOptionNumber, onlyShown, run
 	if (byOptionNumber and type(optionName) == "number") then
 		local optionIndex = optionName
 
-		if (onlyShown) then
+		if (bOnlyShown) then
 			local onlyShownOptions = {}
 
 			for i = 1, #optionsTable do
@@ -532,7 +533,11 @@ function DropDownMetaFunctions:Selected(thisOption)
 			self.icon:SetVertexColor(1, 1, 1, 1)
 		end
 
-		self.icon:SetSize(self:GetHeight()-4, self:GetHeight()-4)
+		if (thisOption.iconsize) then
+			self.icon:SetSize(thisOption.iconsize[1], thisOption.iconsize[2])
+		else
+			self.icon:SetSize(self:GetHeight()-4, self:GetHeight()-4)
+		end
 	else
 		self.label:SetPoint("left", self.label:GetParent(), "left", 4, 0)
 	end
@@ -981,12 +986,13 @@ function DetailsFrameworkDropDownOnHide(self)
 	object:Close()
 end
 
+local iconSizeTable = {16, 16}
 function DF:BuildDropDownFontList(onClick, icon, iconTexcoord, iconSize)
 	local fontTable = {}
 
 	local SharedMedia = LibStub:GetLibrary("LibSharedMedia-3.0")
 	for name, fontPath in pairs(SharedMedia:HashTable("font")) do
-		fontTable[#fontTable+1] = {value = name, label = name, onclick = onClick, icon = icon, iconsize = iconSize, texcoord = iconTexcoord, font = fontPath, descfont = "abcdefg ABCDEFG"}
+		fontTable[#fontTable+1] = {value = name, label = name, onclick = onClick, icon = icon, iconsize = iconSizeTable, texcoord = iconTexcoord, font = fontPath, descfont = "abcdefg ABCDEFG"}
 	end
 
 	table.sort(fontTable, function(t1, t2) return t1.label < t2.label end)
@@ -1001,10 +1007,10 @@ function DropDownMetaFunctions:SetTemplate(template)
 	self.template = template
 
 	if (template.width) then
-		self:SetWidth(template.width)
+		PixelUtil.SetWidth(self.dropdown, template.width)
 	end
 	if (template.height) then
-		self:SetHeight(template.height)
+		PixelUtil.SetWidth(self.dropdown, template.height)
 	end
 
 	if (template.backdrop) then
@@ -1078,6 +1084,137 @@ end
 ------------------------------------------------------------------------------------------------------------
 --object constructor
 
+---@class df_dropdown : table, frame
+---@field SetTemplate fun(self:df_dropdown, template:table)
+---@field BuildDropDownFontList fun(self:df_dropdown, onClick:function, icon:any, iconTexcoord:table?, iconSize:table?):table make a dropdown list with all fonts available, on select a font, call the function onClick
+---@field 
+---@field 
+---@field 
+---@field 
+---@field 
+
+---return a function which when called returns a table filled with all fonts available and ready to be used on dropdowns
+---@param callback function
+---@return function
+function DF:CreateFontListGenerator(callback)
+	return function() return DF:BuildDropDownFontList(callback, [[Interface\AnimCreate\AnimCreateIcons]], {0, 32/128, 64/128, 96/128}, 16) end
+end
+
+local colorGeneratorStatusBarTexture = [[Interface\Tooltips\UI-Tooltip-Background]]
+local colorGeneratorStatusBarColor = {.1, .1, .1, .8}
+local colorGeneratorNoColor = {0, 0, 0, 0}
+
+function DF:CreateColorListGenerator(callback)
+	local newGenerator = function()
+		local dropdownOptions = {}
+
+		for colorName, colorTable in pairs(DF:GetDefaultColorList()) do
+			table.insert(dropdownOptions, {
+				label = colorName,
+				value = colorTable,
+				color = colorTable,
+				statusbar = colorGeneratorStatusBarTexture,
+				statusbarcolor = colorGeneratorStatusBarColor,
+				onclick = callback
+			})
+		end
+
+		table.insert(dropdownOptions, 1, {
+			label = "no color",
+			value = "blank",
+			color = colorGeneratorNoColor,
+			statusbar = colorGeneratorStatusBarTexture,
+			statusbarcolor = colorGeneratorStatusBarColor,
+			onclick = callback
+		})
+
+		return dropdownOptions
+	end
+
+	return newGenerator
+end
+
+function DF:CreateOutlineListGenerator(callback)
+	local newGenerator = function()
+		local dropdownOptions = {}
+
+		for index, outlineInfo in pairs(DF.FontOutlineFlags) do
+			local outlineValue = outlineInfo[1]
+			local outlineName = outlineInfo[2]
+			table.insert(dropdownOptions, {
+				label = outlineName,
+				value = outlineValue,
+				onclick = callback
+			})
+		end
+
+		return dropdownOptions
+	end
+
+	return newGenerator
+end
+
+function DF:CreateAnchorPointListGenerator(callback)
+	local newGenerator = function()
+		local dropdownOptions = {}
+
+		for i, pointName in pairs(DF.AnchorPoints) do
+			table.insert(dropdownOptions, {
+				label = pointName,
+				value = i,
+				onclick = callback
+			})
+		end
+
+		return dropdownOptions
+	end
+
+	return newGenerator
+end
+
+---create a dropdown object with a list of fonts
+---@param parent frame
+---@param callback function
+---@param default any
+---@param width number?
+---@param height number?
+---@param member string?
+---@param name string?
+---@param template table?
+function DF:CreateFontDropDown(parent, callback, default, width, height, member, name, template)
+	local func = DF:CreateFontListGenerator(callback)
+	local dropDownObject = DF:NewDropDown(parent, parent, name, member, width, height, func, default, template)
+	return dropDownObject
+end
+
+function DF:CreateColorDropDown(parent, callback, default, width, height, member, name, template)
+	local func = DF:CreateColorListGenerator(callback)
+	local dropDownObject = DF:NewDropDown(parent, parent, name, member, width, height, func, default, template)
+	return dropDownObject
+end
+
+function DF:CreateOutlineDropDown(parent, callback, default, width, height, member, name, template)
+	local func = DF:CreateOutlineListGenerator(callback)
+	local dropDownObject = DF:NewDropDown(parent, parent, name, member, width, height, func, default, template)
+	return dropDownObject
+end
+
+function DF:CreateAnchorPointDropDown(parent, callback, default, width, height, member, name, template)
+	local func = DF:CreateAnchorPointListGenerator(callback)
+	local dropDownObject = DF:NewDropDown(parent, parent, name, member, width, height, func, default, template)
+	return dropDownObject
+end
+
+---create a dropdown object
+---@param parent frame
+---@param func function
+---@param default any
+---@param width number?
+---@param height number?
+---@param member string?
+---@param name string?
+---@param template table?
+---@return df_dropdown
 function DF:CreateDropDown(parent, func, default, width, height, member, name, template)
 	return DF:NewDropDown(parent, parent, name, member, width, height, func, default, template)
 end
@@ -1118,8 +1255,7 @@ function DF:NewDropDown(parent, container, name, member, width, height, func, de
 	end
 
 	dropDownObject.dropdown = DF:CreateNewDropdownFrame(parent, name)
-	dropDownObject.dropdown:SetWidth(width)
-	dropDownObject.dropdown:SetHeight(height)
+	PixelUtil.SetSize(dropDownObject.dropdown, width, height)
 
 	dropDownObject.container = container
 	dropDownObject.widget = dropDownObject.dropdown
@@ -1308,7 +1444,7 @@ function DF:CreateNewDropdownFrame(parent, name)
 	child.mouseover = mouseover
 
 	scroll:SetScrollChild(child)
-	tinsert(UISpecialFrames, newDropdownFrame.dropdownborder:GetName())
+	table.insert(UISpecialFrames, newDropdownFrame.dropdownborder:GetName())
 	--tinsert(UISpecialFrames, f.dropdownframe:GetName()) --not adding this solves an issue with ConsolePort addon and stackoverflows on Hide...
 
 	return newDropdownFrame

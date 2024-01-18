@@ -3,6 +3,12 @@
 local addonName, scriptLibrary = ...
 local _
 
+---@cast scriptLibrary scriptlibrary
+
+local date = date
+local unpack = unpack
+local CreateFrame = CreateFrame
+
 --load Details! Framework
 local DF = _G ["DetailsFramework"]
 if (not DF) then
@@ -35,7 +41,7 @@ local openContextMenuForScript = function(button)
     if (scriptObject) then
         --duplicate the script
         GameCooltip:AddLine("Duplicate")
-        GameCooltip:AddMenu(1, function() scriptLibrary.DuplicateScriptObject(ID) end, "Duplicate", button)
+        GameCooltip:AddMenu(1, function() scriptLibrary.ScriptObject.Duplicate(ID) end, "Duplicate", button)
         GameCooltip:AddIcon([[Interface\AddOns\Plater\images\icons]], 1, 1, 16, 16, 3/512, 21/512, 215/512, 233/512)
 
         --export script
@@ -43,17 +49,15 @@ local openContextMenuForScript = function(button)
         GameCooltip:AddIcon([[Interface\BUTTONS\UI-GuildButton-MOTD-Up]], 1, 1, 16, 16, 1, 0, 0, 1)
         GameCooltip:AddMenu(1, function() scriptLibrary.OpenImportExport(false, true, scriptObject) end, "Export", button)
 
---      GameCooltip:AddLine("Send to Your Party/Raid", "", 2)
---      GameCooltip:AddIcon([[Interface\BUTTONS\UI-GuildButton-MOTD-Up]], 2, 1, 16, 16, 1, 0, 0, 1)
---      GameCooltip:AddMenu(2, onclick_menu_scroll_line, "sendtogroup", mainFrame)
-
         GameCooltip:SetOption("SubFollowButton", true)
         GameCooltip:Show()
     end
 end
 
+---create the left scroll frame, where the scripts are listed
+---this scroll allow the user to select which script to edit
 function scriptLibrary.CreateScriptSelectionScrollBox()
-    local mainFrame = scriptLibrary.MainFrame
+    local mainFrame = scriptLibrary.GetMainFrame()
     local settingsScrollBox = scriptLibrary.FrameSettings.settingsScrollBox
     local data = scriptLibrary.GetData()
 
@@ -70,16 +74,25 @@ function scriptLibrary.CreateScriptSelectionScrollBox()
     end
     local onHideScriptInfoFrame = function()
     end
-    --window name, frame object, stack, show callback, hide callback
-    scriptLibrary.RegisterFrame("scriptMenuFrame", menuFrame, scriptLibrary.FrameStack.scriptMenuFrame, onShowScriptInfoFrame, onHideScriptInfoFrame)
-    scriptLibrary.ShowWindow("scriptMenuFrame")
 
-    --refresh scroll function
+    --window name, frame object, stack, show callback, hide callback
+    scriptLibrary.Windows.RegisterFrame("scriptMenuFrame", menuFrame, scriptLibrary.FrameStack.scriptMenuFrame, onShowScriptInfoFrame, onHideScriptInfoFrame)
+    scriptLibrary.Windows.ShowWindow("scriptMenuFrame")
+
+    ---refresh scroll function
+    ---@param self scrollframe
+    ---@param data table
+    ---@param offset number
+    ---@param totalLines number
     local refreshCodeScrollBox = function(self, data, offset, totalLines)
         --alphabetical order - note: alphabetical might not be a good idea in the future
+
+        local data = scriptLibrary.GetData()
+
+        ---@type {key1: number, key2: scriptobject, key3: string}[]
         local dataInOrder = {}
 
-        if (mainFrame.SearchString ~= "") then
+        if (mainFrame.SearchString ~= "" and type(mainFrame.SearchString) == "string") then
             mainFrame.SearchString = mainFrame.SearchString:lower()
             for i = 1, #data do
                 if (data[i].Name:lower():find(mainFrame.SearchString)) then
@@ -99,17 +112,17 @@ function scriptLibrary.CreateScriptSelectionScrollBox()
         --update the scroll
         for i = 1, totalLines do
             local index = i + offset
-            local t = dataInOrder[index]
-            if (t) then
+            local thisData = dataInOrder[index]
+            if (thisData) then
                 --get the data
-                local codeID = t[1]
-                local data = t[2]
+                local codeId = thisData[1]
+                local scriptObject = thisData[2]
 
                 --update the line
                 local line = self:GetLine(i)
-                line:UpdateLine(codeID, data)
+                line:UpdateLine(codeId, scriptObject)
 
-                if (data == currentCode) then
+                if (scriptObject == currentCode) then
                     line:SetBackdropColor(unpack(settingsScrollBox.lineBackdropColorSelected))
                 else
                     line:SetBackdropColor(unpack(settingsScrollBox.lineBackdropColor))
@@ -131,14 +144,14 @@ function scriptLibrary.CreateScriptSelectionScrollBox()
     end
     local onClickScrollLine = function(self, button)
         if (button == "LeftButton") then
-            scriptLibrary.SelectCode(self.ID)
+            scriptLibrary.ScriptObject.Select(self.ID)
 
         elseif (button == "RightButton") then
             openContextMenuForScript(self)
         end
     end
     local onClickRemoveButton = function(self)
-        scriptLibrary.RemoveCode(self:GetParent().ID)
+        scriptLibrary.ScriptObject.Remove(self:GetParent().ID)
     end
 
     local updateLineFunction = function(self, ID, data)
@@ -189,7 +202,7 @@ function scriptLibrary.CreateScriptSelectionScrollBox()
     --create the scrollbox lines
     for i = 1, settingsScrollBox.lines do
         codeScrollBox:CreateLine(function(self, index)
-            --create a new line
+            ---@type button
             local line = CreateFrame("button", "$parentLine" .. index, self, "BackdropTemplate")
 
             --set its parameters
@@ -208,9 +221,6 @@ function scriptLibrary.CreateScriptSelectionScrollBox()
             line:SetBackdropColor(unpack(settingsScrollBox.lineBackdropColor))
             line:SetBackdropBorderColor(0, 0, 0, 1)
 
-            --local bottomGradient = DF:CreateTexture(line, {gradient = "vertical", fromColor = {0, 0, 0, 0.05}, toColor = "transparent"}, 1, settingsScrollBox.lineHeight, "artwork", {0, 1, 0, 1}, "bottomGradient")
-            --bottomGradient:SetPoint("bottoms")
-
             local icon = line:CreateTexture("$parentIcon", "overlay")
             icon:SetSize(settingsScrollBox.lineHeight - 4, settingsScrollBox.lineHeight - 4)
             icon:SetTexCoord(.1, .9, .1, .9)
@@ -218,6 +228,7 @@ function scriptLibrary.CreateScriptSelectionScrollBox()
             local codeName = DF:CreateLabel(line, "", DF:GetTemplate ("font", "CODE_SCRIPTS_NAME"))
             local runOnLabel = DF:CreateLabel(line, "", DF:GetTemplate ("font", "CODE_SCRIPTS_RUNON"))
 
+            ---@type button
             local removeButton = CreateFrame("button", "$parentRemoveButton", line, "UIPanelCloseButton")
             removeButton:SetSize(12, 12)
             removeButton:SetScript("OnClick", onClickRemoveButton)
@@ -229,17 +240,19 @@ function scriptLibrary.CreateScriptSelectionScrollBox()
             local runCodeFunc = function()
                 local config = scriptLibrary.GetConfig()
                 local currentlyOpen = config.last_opened_script
-                scriptLibrary.SelectCode(line.ID)
-                scriptLibrary.ExecuteCode()
+                scriptLibrary.ScriptObject.Select(line.ID)
+                scriptLibrary.CodeExec.ExecuteCode()
 
                 if (currentlyOpen) then
-                    scriptLibrary.SelectCode(currentlyOpen)
+                    scriptLibrary.ScriptObject.Select(currentlyOpen)
                 end
 
                 C_Timer.After(.1, function()
                     mainFrame.CodeEditor:ClearFocus()
                 end)
             end
+
+            ---@type df_button
             local runButton = DF:CreateButton(line, runCodeFunc, 20, 18, nil, -1)
             runButton:SetIcon([[Interface\MONEYFRAME\Arrow-Right-Down]], 16, 16)
             runButton:SetPoint("bottomright", line, "bottomright", 13, 0)
@@ -261,18 +274,19 @@ function scriptLibrary.CreateScriptSelectionScrollBox()
         end)
     end
 
-    --script search box
+    ---search box callback when the text changes
     function mainFrame.OnSearchBoxTextChanged()
-        local text = mainFrame.ScriptSearchTextEntry:GetText()
-        mainFrame.SearchString = text:lower()
+        local outputText = mainFrame.ScriptSearchTextEntry:GetText()
+        mainFrame.SearchString = outputText:lower()
         codeScrollBox:Refresh()
     end
 
-    local codeSearchTextentry = DF:CreateTextEntry(mainFrame, function()end, 200, 20, "ScriptSearchTextEntry", _, _, options_dropdown_template)
-    codeSearchTextentry:SetHook("OnChar", mainFrame.OnSearchBoxTextChanged)
-    codeSearchTextentry:SetHook("OnTextChanged", mainFrame.OnSearchBoxTextChanged)
+    local searchBoxTextentry = DF:CreateTextEntry(mainFrame, function()end, 200, 20, "ScriptSearchTextEntry", _, _, options_dropdown_template)
+    searchBoxTextentry:SetHook("OnChar", mainFrame.OnSearchBoxTextChanged)
+    searchBoxTextentry:SetHook("OnTextChanged", mainFrame.OnSearchBoxTextChanged)
+    searchBoxTextentry:SetAsSearchBox()
 
-    local codeSearchLabel = DF:CreateLabel(mainFrame, "Search:", DF:GetTemplate("font", "ORANGE_FONT_TEMPLATE"))
-    codeSearchTextentry:SetPoint("topleft", codeSearchLabel, "bottomleft", 0, -2)
-    mainFrame.CodeSearchLabel = codeSearchLabel
+    local searchScriptLabel = DF:CreateLabel(mainFrame, "Search:", DF:GetTemplate("font", "ORANGE_FONT_TEMPLATE"))
+    searchBoxTextentry:SetPoint("topleft", searchScriptLabel, "bottomleft", 0, -2)
+    mainFrame.SearchScriptLabel = searchScriptLabel
 end

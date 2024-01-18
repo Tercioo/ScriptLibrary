@@ -1,4 +1,4 @@
-## Interface: 100007
+## Interface: 100105
 ## Title: Script Library
 ## Notes: An addon by Terciob, organize and save scripts which can be executed on demand or executed on login.
 ## SavedVariables: RuntimeEditorDB, ScriptLibraryDB
@@ -12,10 +12,13 @@ libs\libs.xml
 
 indent.lua
 SL_Init.lua
+SL_Environment.lua
 SL_ScriptExec.lua
 SL_ScriptMenu.lua
 SL_ImportExport.lua
 SL_OptionsFrame.lua
 SL_Editor.lua
-
-SL_Core.lua
+SL_WindowControl.lua
+SL_ScriptObject.lua
+SL_ScriptPages.lua
+SL_Version.lua
