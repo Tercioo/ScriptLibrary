@@ -55,6 +55,9 @@ function scriptLibrary.CodeExec.Compile(scriptObject)
     else
         local page = scriptLibrary.ScriptPages.GetPage(scriptObject, 1)
         funcString = page.Code
+        if (scriptLibrary.CodeExec.IsFunctionNaked(funcString)) then
+            funcString = "function() " .. funcString .. " end"
+        end
     end
 
     local code = "return " .. funcString
