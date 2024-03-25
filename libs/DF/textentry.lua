@@ -148,6 +148,10 @@ detailsFramework.TextEntryCounter = detailsFramework.TextEntryCounter or 1
 		end
 	end
 
+	local smember_fontsize = function(object, value)
+		return detailsFramework:SetFontSize(object.editbox, value)
+	end
+
 	--text horizontal pos
 	local smember_horizontalpos = function(object, value)
 		return object.editbox:SetJustifyH(string.lower(value))
@@ -162,6 +166,8 @@ detailsFramework.TextEntryCounter = detailsFramework.TextEntryCounter or 1
 	TextEntryMetaFunctions.SetMembers["text"] = smember_text
 	TextEntryMetaFunctions.SetMembers["multiline"] = smember_multiline
 	TextEntryMetaFunctions.SetMembers["align"] = smember_horizontalpos
+	TextEntryMetaFunctions.SetMembers["fontsize"] = smember_fontsize
+	TextEntryMetaFunctions.SetMembers["textsize"] = smember_fontsize
 
 	TextEntryMetaFunctions.__newindex = function(object, key, value)
 		local func = TextEntryMetaFunctions.SetMembers[key]
@@ -544,6 +550,7 @@ end
 ---@field text any
 ---@field multiline any
 ---@field align any
+---@field fontsize any
 ---@field ShouldOptimizeAutoComplete boolean?
 ---@field SetTemplate fun(self:df_textentry, template:table)
 ---@field Disable fun(self:df_textentry)
@@ -589,7 +596,7 @@ function detailsFramework:NewTextEntry(parent, container, name, member, width, h
 	end
 
 	if (name:find("$parent")) then
-		local parentName = detailsFramework.GetParentName(parent)
+		local parentName = detailsFramework:GetParentName(parent)
 		name = name:gsub("$parent", parentName)
 	end
 
@@ -714,6 +721,51 @@ function detailsFramework:NewTextEntry(parent, container, name, member, width, h
 
 	return newTextEntryObject, withLabel
 end
+
+---create a search box with no backdrop, a magnifying glass icon and a clear search button
+---@param parent frame
+---@param callback any
+---@return df_textentry
+function detailsFramework:CreateSearchBox(parent, callback)
+    local onSearchPressEnterCallback = function(_, _, text, self)
+        callback(self)
+    end
+
+    local searchBox = detailsFramework:CreateTextEntry(parent, onSearchPressEnterCallback, 220, 26)
+    searchBox:SetAsSearchBox()
+    searchBox:SetTextInsets(25, 5, 0, 0)
+    searchBox:SetBackdrop(nil)
+    searchBox:SetHook("OnTextChanged", callback)
+
+    local file, size, flags = searchBox:GetFont()
+    searchBox:SetFont(file, 12, flags)
+    searchBox.ClearSearchButton:SetAlpha(0)
+
+    searchBox.BottomLineTexture = searchBox:CreateTexture(nil, "border")
+    searchBox.BottomLineTexture:SetPoint("bottomleft", searchBox.widget, "bottomleft", -15, 0)
+    searchBox.BottomLineTexture:SetPoint("bottomright", searchBox.widget, "bottomright", 0, 0)
+	local bUseAtlasSize = false
+    searchBox.BottomLineTexture:SetAtlas("common-slider-track")
+    searchBox.BottomLineTexture:SetHeight(8)
+
+	--create the button to clear the search box
+	searchBox.ClearSearchButton = CreateFrame("button", nil, searchBox.widget, "UIPanelCloseButton")
+	searchBox.ClearSearchButton:SetPoint("right", searchBox.widget, "right", -3, 0)
+	searchBox.ClearSearchButton:SetSize(10, 10)
+	searchBox.ClearSearchButton:SetAlpha(0.3)
+	searchBox.ClearSearchButton:GetNormalTexture():SetAtlas("common-search-clearbutton")
+	searchBox.ClearSearchButton:GetHighlightTexture():SetAtlas("common-search-clearbutton")
+	searchBox.ClearSearchButton:GetPushedTexture():SetAtlas("common-search-clearbutton")
+
+	searchBox.ClearSearchButton:SetScript("OnClick", function()
+		searchBox:SetText("")
+		searchBox:PressEnter()
+		searchBox:ClearFocus()
+	end)
+
+    return searchBox
+end
+
 
 function detailsFramework:NewSpellEntry(parent, func, width, height, param1, param2, member, name)
 	local editbox = detailsFramework:NewTextEntry(parent, parent, name, member, width, height, func, param1, param2)
@@ -1013,7 +1065,7 @@ end
 function detailsFramework:NewSpecialLuaEditorEntry(parent, width, height, member, name, nointent, showLineNumbers, bNoName)
 	if (not bNoName) then
 		if (name and name:find("$parent")) then
-			local parentName = detailsFramework.GetParentName(parent)
+			local parentName = detailsFramework:GetParentName(parent)
 			name = name:gsub("$parent", parentName)
 		end
 	else
