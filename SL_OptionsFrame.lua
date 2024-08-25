@@ -7,6 +7,7 @@ local UIParent = UIParent
 ---@cast scriptLibrary scriptlibrary
 
 --load Details! Framework
+---@type detailsframework
 local detailsFramework = _G["DetailsFramework"]
 if (not detailsFramework) then
     print("|cFFFFAA00RuntimeEditor: framework not found, if you just installed or updated the addon, please restart your client.|r")
@@ -38,6 +39,7 @@ function scriptLibrary.CreateMainOptionsFrame()
     DetailsFramework:ApplyStandardBackdrop(mainFrame)
     scriptLibrary.MainFrame = mainFrame
 
+    ---@type df_image
     local bottomGradient = detailsFramework:CreateTexture(mainFrame, {gradient = "vertical", fromColor = {0, 0, 0, 0.4}, toColor = "transparent"}, 1, 120, "artwork", {0, 1, 0, 1}, "bottomGradient")
     bottomGradient:SetPoint("bottoms")
 
@@ -61,6 +63,7 @@ function scriptLibrary.CreateMainOptionsFrame()
     LibWindow.RestorePosition(mainFrame)
 
     --scale bar
+    ---@type df_scalebar
     local scaleBar = detailsFramework:CreateScaleBar(mainFrame, config.frame_scale)
     mainFrame:SetScale(config.frame_scale.scale)
 
@@ -90,6 +93,8 @@ function scriptLibrary.CreateMainOptionsFrame()
     local createNewCode = function()
         scriptLibrary.ScriptObject.CreateNew()
     end
+
+    ---@type df_button
     local createNewCodeButton = detailsFramework:CreateButton(scriptInfoFrame, createNewCode, 32, 32, "", -1, nil, nil, "CreateButton", nil, nil, detailsFramework:GetTemplate("button", "OPTIONS_BUTTON_TEMPLATE"), detailsFramework:GetTemplate("font", "CODE_BUTTON"))
     createNewCodeButton:SetIcon([[Interface\BUTTONS\UI-PlusButton-Up]], 20, 20, "overlay", {0, 1, 0, 1})
     mainFrame.CreateNewCodeButton = createNewCodeButton
@@ -101,6 +106,8 @@ function scriptLibrary.CreateMainOptionsFrame()
         --show the import window
         scriptLibrary.OpenImportExport(true)
     end
+
+    ---@type df_button
     local importCodeButton = detailsFramework:CreateButton(scriptInfoFrame, openImport, 32, 32, "", -1, nil, nil, "ImportButton", nil, nil, detailsFramework:GetTemplate("button", "OPTIONS_BUTTON_TEMPLATE"), detailsFramework:GetTemplate("font", "CODE_BUTTON"))
     importCodeButton:SetIcon([[Interface\BUTTONS\UI-PlusButton-Up]], 20, 20, "overlay", {0, 1, 0, 1})
     mainFrame.ImportButton = importCodeButton
@@ -108,7 +115,9 @@ function scriptLibrary.CreateMainOptionsFrame()
     importCodeButton.nameLabel:SetPoint("top", importCodeButton, "bottom", 0, -1)
 
     --textentry to insert the name of the code
+    ---@type df_label
     local codeNameLabel = detailsFramework:CreateLabel(scriptInfoFrame, "Script Name:", detailsFramework:GetTemplate ("font", "ORANGE_FONT_TEMPLATE"))
+    ---@type df_textentry
     local codeNameTextentry = detailsFramework:CreateTextEntry(scriptInfoFrame, function()end, settingsScrollBox.width, 20, "CodeNameTextEntry", _, _, options_dropdown_template)
     codeNameTextentry:SetPoint("topleft", codeNameLabel, "bottomleft", 0, -2)
     mainFrame.CodeNameLabel = codeNameLabel
@@ -118,7 +127,9 @@ function scriptLibrary.CreateMainOptionsFrame()
     local codeIconCallback = function(texture)
         mainFrame.CodeIconButton:SetIcon(texture)
     end
+    ---@type df_label
     local codeIconLabel = detailsFramework:CreateLabel(scriptInfoFrame, "Icon:", detailsFramework:GetTemplate("font", "ORANGE_FONT_TEMPLATE"))
+    ---@type df_button
     local codeIconButton = detailsFramework:CreateButton(scriptInfoFrame, function() detailsFramework:IconPick(codeIconCallback, true) end, 20, 20, "", 0, nil, nil, nil, nil, nil, detailsFramework:GetTemplate("button", "OPTIONS_BUTTON_TEMPLATE"))
     codeIconButton:SetPoint("topleft", codeIconLabel, "bottomleft", 0, -2)
     mainFrame.CodeIconLabel = codeIconLabel
@@ -128,6 +139,7 @@ function scriptLibrary.CreateMainOptionsFrame()
     local switchAutoRun = function(self, fixedParameter, value)
         return
     end
+    ---@type df_checkbox
     local autorunCheckbox, autorunLabel = detailsFramework:CreateSwitch(scriptInfoFrame, switchAutoRun, false, _, _, _, _, _, _, _, _, _, "Auto Run on Login", detailsFramework:GetTemplate("switch", "OPTIONS_CHECKBOX_TEMPLATE"), detailsFramework:GetTemplate("font", "ORANGE_FONT_TEMPLATE"))
     autorunCheckbox:SetAsCheckBox()
     autorunCheckbox:SetSize(20, 20)
@@ -148,6 +160,8 @@ function scriptLibrary.CreateMainOptionsFrame()
             print(value)
         end
     end
+
+    ---@type df_checkbox
     local useXPCallCheckbox, useXPCallLabel = detailsFramework:CreateSwitch(scriptInfoFrame, useXPCallCallback, false, _, _, _, _, _, _, _, _, _, "use XPCall", detailsFramework:GetTemplate("switch", "OPTIONS_CHECKBOX_TEMPLATE"), detailsFramework:GetTemplate("font", "ORANGE_FONT_TEMPLATE"))
     useXPCallCheckbox:SetAsCheckBox()
     useXPCallCheckbox:SetSize(20, 20)
@@ -156,12 +170,16 @@ function scriptLibrary.CreateMainOptionsFrame()
     useXPCallCheckbox:SetValue(false)
     mainFrame.UseXPCallCheckbox = useXPCallCheckbox
 
-    useXPCallLabel:ClearAllPoints()
-    useXPCallLabel:SetPoint("left", useXPCallCheckbox, "right", 2, 0)
-    useXPCallLabel.text = "Use xpcall"
+    if (useXPCallLabel) then
+        useXPCallLabel:ClearAllPoints()
+        useXPCallLabel:SetPoint("left", useXPCallCheckbox, "right", 2, 0)
+        useXPCallLabel.text = "Use xpcall"
+    end
 
     --description
+    ---@type df_label
     local codeDescLabel = detailsFramework:CreateLabel(scriptInfoFrame, "Description:", detailsFramework:GetTemplate("font", "ORANGE_FONT_TEMPLATE"))
+    ---@type df_textentry
     local codeDescTextentry = detailsFramework:CreateTextEntry(scriptInfoFrame, function()end, settingsScrollBox.width, 20, "ScriptDescriptionTextEntry", _, _, options_dropdown_template)
     codeDescTextentry:SetPoint("topleft", codeDescLabel, "bottomleft", 0, -2)
     mainFrame.CodeDescLabel = codeDescLabel
@@ -185,6 +203,7 @@ function scriptLibrary.CreateMainOptionsFrame()
     scriptLibrary.Windows.RegisterFrame("codeEditorFrame", codeEditorFrame, scriptLibrary.FrameStack.codeEditorFrame, onShowScriptInfoFrame, onHideScriptInfoFrame)
     scriptLibrary.Windows.ShowWindow("codeEditorFrame")
 
+    ---@type df_luaeditor
     local codeEditor = detailsFramework:NewSpecialLuaEditorEntry(codeEditorFrame, codeEditorFrameSettings.width, codeEditorFrameSettings.height, "CodeEditor", "$parentCodeEditor", false, true)
     codeEditor:SetTextSize(config.options.text_size)
     codeEditor:SetPoint("topleft", codeEditorFrame, "topleft", 0, 0)
@@ -205,6 +224,7 @@ function scriptLibrary.CreateMainOptionsFrame()
     detailsFramework:ApplyStandardBackdrop(errortextFrame, false, 1)
     errortextFrame:SetBackdropColor(.3, .30, .30, .9)
 
+    ---@type df_label
     local errortextLabel = detailsFramework:CreateLabel(errortextFrame, "", detailsFramework:GetTemplate ("font", "ORANGE_FONT_TEMPLATE"))
     errortextLabel.textcolor = "silver"
     errortextLabel.textsize = 13
@@ -294,27 +314,33 @@ function scriptLibrary.CreateMainOptionsFrame()
     end)
 
     --execute button
+    ---@type df_button
     local executeButton = detailsFramework:CreateButton(codeEditor, scriptLibrary.CodeExec.ExecuteCode, buttonsFrameSettings.width, buttonsFrameSettings.height, "Run", -1, nil, nil, nil, nil, nil, detailsFramework:GetTemplate("button", "OPTIONS_BUTTON_TEMPLATE"), detailsFramework:GetTemplate("font", "CODE_BUTTON"))
     executeButton:SetIcon([[Interface\BUTTONS\UI-Panel-BiggerButton-Up]], 20, 20, "overlay", {0.1, .9, 0.1, .9})
     executeButton.tooltip = "execute the code"
     mainFrame.ExecuteButton = executeButton
 
+    --replace button
+    ---@type df_button
     local replaceButton = detailsFramework:CreateButton(codeEditor, scriptLibrary.CodeExec.ReplaceCode, buttonsFrameSettings.width, buttonsFrameSettings.height, "Replace", -1, nil, nil, nil, nil, nil, detailsFramework:GetTemplate("button", "OPTIONS_BUTTON_TEMPLATE"), detailsFramework:GetTemplate("font", "CODE_BUTTON"))
     replaceButton:SetIcon([[Interface\BUTTONS\UI-Panel-BiggerButton-Up]], 20, 20, "overlay", {0.1, .9, 0.1, .9})
     replaceButton.tooltip = "replaces the function within the global namespace or addon."
     mainFrame.ReplaceButton = replaceButton
 
     --save button
+    ---@type df_button
     local saveButton = detailsFramework:CreateButton(codeEditor, scriptLibrary.ScriptObject.Save, buttonsFrameSettings.width, buttonsFrameSettings.height, "Save", -1, nil, nil, nil, nil, nil, detailsFramework:GetTemplate("button", "OPTIONS_BUTTON_TEMPLATE"), detailsFramework:GetTemplate("font", "CODE_BUTTON"))
     saveButton:SetIcon([[Interface\BUTTONS\UI-Panel-ExpandButton-Up]], 20, 20, "overlay", {0.1, .9, 0.1, .9})
     mainFrame.SaveButton = saveButton
 
     --save button
+    ---@type df_button
     local reloadButton = detailsFramework:CreateButton(codeEditor, scriptLibrary.Reload, buttonsFrameSettings.width, buttonsFrameSettings.height, "ReloadUI", -1, nil, nil, nil, nil, nil, detailsFramework:GetTemplate("button", "OPTIONS_BUTTON_TEMPLATE"), detailsFramework:GetTemplate("font", "CODE_BUTTON"))
     reloadButton:SetIcon([[Interface\BUTTONS\UI-Panel-ExpandButton-Up]], 20, 20, "overlay", {0.1, .9, 0.1, .9})
     mainFrame.ReloadButton = reloadButton
 
     --shift + enter to execute
+    ---@type df_label
     local executeLabel = detailsFramework:CreateLabel(codeEditor, "[SHIFT + ENTER] to save and execute the code", detailsFramework:GetTemplate("font", "ORANGE_FONT_TEMPLATE"))
     executeLabel:SetPoint("left", reloadButton, "right", 30, 1)
     executeLabel.fontsize = 12
@@ -339,46 +365,54 @@ function scriptLibrary.CreateMainOptionsFrame()
         feedbackReplaceButton_Texture:SetDrawLayer("overlay", 7)
         feedbackReplaceButton_Texture:SetAlpha (0)
 
+        ---@type animationgroup
         local feedbackSaveButton_FlashAnimation = detailsFramework:CreateAnimationHub(feedbackSaveButton_Texture)
-        detailsFramework:CreateAnimation(feedbackSaveButton_FlashAnimation, "alpha", 1, 0.08, 0, 0.2)
-        detailsFramework:CreateAnimation(feedbackSaveButton_FlashAnimation, "alpha", 2, 0.08, 0.4, 0)
+        detailsFramework:CreateAnimation(feedbackSaveButton_FlashAnimation, "Alpha", 1, 0.08, 0, 0.2)
+        detailsFramework:CreateAnimation(feedbackSaveButton_FlashAnimation, "Alpha", 2, 0.08, 0.4, 0)
 
+        ---@type animationgroup
         local feedbackExecuteButton_FlashAnimation = detailsFramework:CreateAnimationHub(feedbackExecuteButton_Texture)
-        detailsFramework:CreateAnimation(feedbackExecuteButton_FlashAnimation, "alpha", 1, 0.08, 0, 0.2)
-        detailsFramework:CreateAnimation(feedbackExecuteButton_FlashAnimation, "alpha", 2, 0.08, 0.4, 0)
+        detailsFramework:CreateAnimation(feedbackExecuteButton_FlashAnimation, "Alpha", 1, 0.08, 0, 0.2)
+        detailsFramework:CreateAnimation(feedbackExecuteButton_FlashAnimation, "Alpha", 2, 0.08, 0.4, 0)
 
+        ---@type animationgroup
         local feedbackReplaceButton_FlashAnimation = detailsFramework:CreateAnimationHub(feedbackReplaceButton_Texture)
-        detailsFramework:CreateAnimation(feedbackReplaceButton_FlashAnimation, "alpha", 1, 0.08, 0, 0.2)
-        detailsFramework:CreateAnimation(feedbackReplaceButton_FlashAnimation, "alpha", 2, 0.08, 0.4, 0)
+        detailsFramework:CreateAnimation(feedbackReplaceButton_FlashAnimation, "Alpha", 1, 0.08, 0, 0.2)
+        detailsFramework:CreateAnimation(feedbackReplaceButton_FlashAnimation, "Alpha", 2, 0.08, 0.4, 0)
 
+        ---@type animationgroup
         local feedbackSaveButton_Animation = detailsFramework:CreateAnimationHub(saveButton, function() feedbackSaveButton_FlashAnimation:Play() end)
+
+        ---@type animationgroup
         local feedbackExecuteButton_Animation = detailsFramework:CreateAnimationHub(executeButton, function() feedbackExecuteButton_FlashAnimation:Play() end)
+
+        ---@type animationgroup
         local feedbackReplaceButton_Animation = detailsFramework:CreateAnimationHub(replaceButton, function() feedbackExecuteButton_FlashAnimation:Play() end)
 
         local speed = 0.06
         local rotation = 0
         local translation = 7
 
-        detailsFramework:CreateAnimation(feedbackSaveButton_Animation, "translation", 1, speed, 0, -translation)
-        detailsFramework:CreateAnimation(feedbackSaveButton_Animation, "rotation", 1, speed, -rotation)
-        detailsFramework:CreateAnimation(feedbackExecuteButton_Animation, "translation", 1, speed, 0, -translation)
-        detailsFramework:CreateAnimation(feedbackExecuteButton_Animation, "rotation", 1, speed, -rotation)
-        detailsFramework:CreateAnimation(feedbackReplaceButton_Animation, "translation", 1, speed, 0, -translation)
-        detailsFramework:CreateAnimation(feedbackReplaceButton_Animation, "rotation", 1, speed, -rotation)
+        detailsFramework:CreateAnimation(feedbackSaveButton_Animation, "Translation", 1, speed, 0, -translation)
+        detailsFramework:CreateAnimation(feedbackSaveButton_Animation, "Rotation", 1, speed, -rotation)
+        detailsFramework:CreateAnimation(feedbackExecuteButton_Animation, "Translation", 1, speed, 0, -translation)
+        detailsFramework:CreateAnimation(feedbackExecuteButton_Animation, "Rotation", 1, speed, -rotation)
+        detailsFramework:CreateAnimation(feedbackReplaceButton_Animation, "Translation", 1, speed, 0, -translation)
+        detailsFramework:CreateAnimation(feedbackReplaceButton_Animation, "Rotation", 1, speed, -rotation)
 
-        detailsFramework:CreateAnimation(feedbackSaveButton_Animation, "translation", 2, speed, 0, translation)
-        detailsFramework:CreateAnimation(feedbackSaveButton_Animation, "rotation", 2, speed, rotation)
-        detailsFramework:CreateAnimation(feedbackExecuteButton_Animation, "translation", 2, speed, 0, translation)
-        detailsFramework:CreateAnimation(feedbackExecuteButton_Animation, "rotation", 2, speed, rotation)
-        detailsFramework:CreateAnimation(feedbackReplaceButton_Animation, "translation", 2, speed, 0, translation)
-        detailsFramework:CreateAnimation(feedbackReplaceButton_Animation, "rotation", 2, speed, rotation)
+        detailsFramework:CreateAnimation(feedbackSaveButton_Animation, "Translation", 2, speed, 0, translation)
+        detailsFramework:CreateAnimation(feedbackSaveButton_Animation, "Rotation", 2, speed, rotation)
+        detailsFramework:CreateAnimation(feedbackExecuteButton_Animation, "Translation", 2, speed, 0, translation)
+        detailsFramework:CreateAnimation(feedbackExecuteButton_Animation, "Rotation", 2, speed, rotation)
+        detailsFramework:CreateAnimation(feedbackReplaceButton_Animation, "Translation", 2, speed, 0, translation)
+        detailsFramework:CreateAnimation(feedbackReplaceButton_Animation, "Rotation", 2, speed, rotation)
 
-        detailsFramework:CreateAnimation(feedbackSaveButton_Animation, "rotation", 3, speed, rotation)
-        detailsFramework:CreateAnimation(feedbackSaveButton_Animation, "rotation", 4, speed, -rotation)
-        detailsFramework:CreateAnimation(feedbackExecuteButton_Animation, "rotation", 3, speed, rotation)
-        detailsFramework:CreateAnimation(feedbackExecuteButton_Animation, "rotation", 4, speed, -rotation)
-        detailsFramework:CreateAnimation(feedbackReplaceButton_Animation, "rotation", 3, speed, rotation)
-        detailsFramework:CreateAnimation(feedbackReplaceButton_Animation, "rotation", 4, speed, -rotation)
+        detailsFramework:CreateAnimation(feedbackSaveButton_Animation, "Rotation", 3, speed, rotation)
+        detailsFramework:CreateAnimation(feedbackSaveButton_Animation, "Rotation", 4, speed, -rotation)
+        detailsFramework:CreateAnimation(feedbackExecuteButton_Animation, "Rotation", 3, speed, rotation)
+        detailsFramework:CreateAnimation(feedbackExecuteButton_Animation, "Rotation", 4, speed, -rotation)
+        detailsFramework:CreateAnimation(feedbackReplaceButton_Animation, "Rotation", 3, speed, rotation)
+        detailsFramework:CreateAnimation(feedbackReplaceButton_Animation, "Rotation", 4, speed, -rotation)
 
         saveButton.animationHub = feedbackSaveButton_Animation
         executeButton.animationHub = feedbackExecuteButton_Animation
@@ -417,13 +451,21 @@ function scriptLibrary.CreateMainOptionsFrame()
         end
     end
 
+    ---@type df_button
     local increaseFontSizeButton = detailsFramework:CreateButton(mainFrame, changeFontSize, 40, 20, "aA", true, nil, nil, "decreaseFontSizeButton", nil, nil, detailsFramework:GetTemplate("button", "OPTIONS_BUTTON_TEMPLATE"), detailsFramework:GetTemplate("font", "CODE_BUTTON"))
     increaseFontSizeButton:SetPoint("bottomright", mainFrame, "bottomright", -32, 38)
 
+    ---@type df_button
     local decreaseFontSizeButton = detailsFramework:CreateButton(mainFrame, changeFontSize, 40, 20, "Aa", false, nil, nil, "decreaseFontSizeButton", nil, nil, detailsFramework:GetTemplate("button", "OPTIONS_BUTTON_TEMPLATE"), detailsFramework:GetTemplate("font", "CODE_BUTTON"))
     decreaseFontSizeButton:SetPoint("right", increaseFontSizeButton, "left", -2, 0)
 
     --done
     mainFrame:Show()
     scriptLibrary.bFramesBuilt = true
+
+    _G.C_Timer.After(0, function()
+        if (config.last_opened_script) then
+            scriptLibrary.ScriptObject.Select(config.last_opened_script)
+        end
+    end)
 end

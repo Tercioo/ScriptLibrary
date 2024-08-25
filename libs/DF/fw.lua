@@ -1,6 +1,6 @@
 
 
-local dversion = 551
+local dversion = 563
 local major, minor = "DetailsFramework-1.0", dversion
 local DF, oldminor = LibStub:NewLibrary(major, minor)
 
@@ -34,7 +34,7 @@ local GetSpellBookItemName = GetSpellBookItemName or C_SpellBook.GetSpellBookIte
 local GetNumSpellTabs = GetNumSpellTabs or C_SpellBook.GetNumSpellBookSkillLines
 local GetSpellTabInfo = GetSpellTabInfo or function(tabLine) local skillLine = C_SpellBook.GetSpellBookSkillLineInfo(tabLine) if skillLine then return skillLine.name, skillLine.iconID, skillLine.itemIndexOffset, skillLine.numSpellBookItems, skillLine.isGuild, skillLine.offSpecID end end
 local SpellBookItemTypeMap = Enum.SpellBookItemType and {[Enum.SpellBookItemType.Spell] = "SPELL", [Enum.SpellBookItemType.None] = "NONE", [Enum.SpellBookItemType.Flyout] = "FLYOUT", [Enum.SpellBookItemType.FutureSpell] = "FUTURESPELL", [Enum.SpellBookItemType.PetAction] = "PETACTION" } or {}
-local GetSpellBookItemInfo = GetSpellBookItemInfo or function(...) local si = C_SpellBook.GetSpellBookItemInfo(...) if si then return SpellBookItemTypeMap[si.itemType] or "NONE", si.spellID end end
+local GetSpellBookItemInfo = GetSpellBookItemInfo or function(...) local si = C_SpellBook.GetSpellBookItemInfo(...) if si then return SpellBookItemTypeMap[si.itemType] or "NONE", (si.itemType == Enum.SpellBookItemType.Flyout or si.itemType == Enum.SpellBookItemType.PetAction) and si.actionID or si.spellID or si.actionID, si end end
 local SPELLBOOK_BANK_PLAYER = Enum.SpellBookSpellBank and Enum.SpellBookSpellBank.Player or "player"
 local SPELLBOOK_BANK_PET = Enum.SpellBookSpellBank and Enum.SpellBookSpellBank.Pet or "pet"
 local IsPassiveSpell = IsPassiveSpell or C_Spell.IsSpellPassive
@@ -113,7 +113,13 @@ end
 ---return if the wow version the player is playing is dragonflight or an expansion after it
 ---@return boolean
 function DF.IsDragonflightAndBeyond()
-	return select(4, GetBuildInfo()) >= 100000
+	return buildInfo >= 100000
+end
+
+---return true if the wow version is Dragonflight or below
+---@return boolean
+function DF.IsDragonflightOrBelow()
+	return buildInfo < 110000
 end
 
 ---return if the wow version the player is playing is a classic version of wow
@@ -2011,6 +2017,10 @@ local startFlash_Method = function(self, fadeInTime, fadeOutTime, flashDuration,
 	flashAnimation:Play()
 end
 
+---create a flash animation for a frame
+---@param frame table
+---@param onFinishFunc function?
+---@param onLoopFunc function?
 function DF:CreateFlashAnimation(frame, onFinishFunc, onLoopFunc)
 	local flashAnimation = frame:CreateAnimationGroup()
 
@@ -2795,6 +2805,9 @@ local templateOnLeave = function(frame)
 	end
 end
 
+DF.TemplateOnEnter = templateOnEnter
+DF.TemplateOnLeave = templateOnLeave
+
 ---set a details framework template into a regular frame
 ---@param self table
 ---@param frame uiobject
@@ -2905,8 +2918,10 @@ end
 
 --DF.font_templates ["ORANGE_FONT_TEMPLATE"] = {color = "orange", size = 11, font = "Accidental Presidency"}
 --DF.font_templates ["OPTIONS_FONT_TEMPLATE"] = {color = "yellow", size = 12, font = "Accidental Presidency"}
-DF.font_templates["ORANGE_FONT_TEMPLATE"] = {color = "orange", size = 10, font = DF:GetBestFontForLanguage()}
-DF.font_templates["OPTIONS_FONT_TEMPLATE"] = {color = "yellow", size = 9.6, font = DF:GetBestFontForLanguage()}
+--DF.font_templates["ORANGE_FONT_TEMPLATE"] = {color = "orange", size = 10, font = DF:GetBestFontForLanguage()}
+DF.font_templates["ORANGE_FONT_TEMPLATE"] = {color = {1, 0.8235, 0, 1}, size = 11, font = DF:GetBestFontForLanguage()}
+--DF.font_templates["OPTIONS_FONT_TEMPLATE"] = {color = "yellow", size = 9.6, font = DF:GetBestFontForLanguage()}
+DF.font_templates["OPTIONS_FONT_TEMPLATE"] = {color = {1, 1, 1, 0.9}, size = 9.6, font = DF:GetBestFontForLanguage()}
 DF.font_templates["SMALL_SILVER"] = {color = "silver", size = 9, font = DF:GetBestFontForLanguage()}
 
 --dropdowns
@@ -2920,10 +2935,11 @@ DF.dropdown_templates["OPTIONS_DROPDOWN_TEMPLATE"] = {
 		tile = true
 	},
 
-	backdropcolor = {1, 1, 1, .7},
-	backdropbordercolor = {0, 0, 0, 1},
-	onentercolor = {1, 1, 1, .9},
-	onenterbordercolor = {1, 1, 1, 1},
+	--backdropcolor = {0.1, 0.1, 0.1, .7},
+	backdropcolor = {0.2, 0.2, 0.2, .7},
+	onentercolor = {0.3, 0.3, 0.3, .7},
+	backdropbordercolor = {0, 0, 0, .4},
+	onenterbordercolor = {0.3, 0.3, 0.3, 0.8},
 
 	dropicon = "Interface\\BUTTONS\\arrow-Down-Down",
 	dropiconsize = {16, 16},
@@ -3038,21 +3054,50 @@ DF.button_templates["STANDARD_GRAY"] = {
 	backdropcolor = {0.2, 0.2, 0.2, 0.502},
 	backdropbordercolor = {0, 0, 0, 0.5},
 	onentercolor = {0.4, 0.4, 0.4, 0.502},
+}
 
+DF.button_templates["OPAQUE_DARK"] = {
+	backdrop = {edgeFile = [[Interface\Buttons\WHITE8X8]], edgeSize = 1, bgFile = [[Interface\Buttons\WHITE8X8]], tileSize = 8, tile = true},
+	backdropcolor = {0.2, 0.2, 0.2, 1},
+	backdropbordercolor = {0, 0, 0, 1},
+	onentercolor = {0.4, 0.4, 0.4, 1},
 }
 
 --sliders
 DF.slider_templates = DF.slider_templates or {}
 DF.slider_templates["OPTIONS_SLIDER_TEMPLATE"] = {
 	backdrop = {edgeFile = [[Interface\Buttons\WHITE8X8]], edgeSize = 1, bgFile = [[Interface\Tooltips\UI-Tooltip-Background]], tileSize = 64, tile = true},
-	backdropcolor = {1, 1, 1, .5},
-	backdropbordercolor = {0, 0, 0, 1},
-	onentercolor = {1, 1, 1, .5},
-	onenterbordercolor = {1, 1, 1, 1},
+
+	--original color wow10:
+	--backdropcolor = {1, 1, 1, .5},
+	--backdropbordercolor = {0, 0, 0, 1},
+	--onentercolor = {1, 1, 1, .5},
+	--onenterbordercolor = {1, 1, 1, 1},
+
+	backdropcolor = {0.2, 0.2, 0.2, .7},
+	onentercolor = {0.3, 0.3, 0.3, .7},
+	backdropbordercolor = {0, 0, 0, .4}, --0.7 original alpha wow10
+	onenterbordercolor = {0.3, 0.3, 0.3, 0.8},
+
 	thumbtexture = [[Interface\Tooltips\UI-Tooltip-Background]],
 	thumbwidth = 16,
 	thumbheight = 14,
-	thumbcolor = {0, 0, 0, 0.5},
+	--thumbcolor = {0, 0, 0, 0.5},
+	thumbcolor = {.8, .8, .8, 0.5},
+}
+
+DF.slider_templates["OPTIONS_SLIDERDARK_TEMPLATE"] = {
+	backdrop = {edgeFile = [[Interface\Buttons\WHITE8X8]], edgeSize = 1, bgFile = [[Interface\Tooltips\UI-Tooltip-Background]], tileSize = 64, tile = true},
+
+	backdropcolor = {0.05, 0.05, 0.05, .7},
+	onentercolor = {0.3, 0.3, 0.3, .7},
+	backdropbordercolor = {0, 0, 0, 1},
+	onenterbordercolor = {0, 0, 0, 1},
+
+	thumbtexture = [[Interface\Tooltips\UI-Tooltip-Background]],
+	thumbwidth = 24,
+	thumbheight = 14,
+	thumbcolor = {.8, .8, .8, 0.5},
 }
 
 DF.slider_templates["MODERN_SLIDER_TEMPLATE"] = {

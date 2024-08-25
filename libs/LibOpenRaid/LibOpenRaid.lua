@@ -44,7 +44,7 @@ end
 
 local major = "LibOpenRaid-1.0"
 
-local CONST_LIB_VERSION = 130
+local CONST_LIB_VERSION = 137
 
 if (LIB_OPEN_RAID_MAX_VERSION) then
     if (CONST_LIB_VERSION <= LIB_OPEN_RAID_MAX_VERSION) then
@@ -72,6 +72,8 @@ end
 --default values
     openRaidLib.inGroup = false
     openRaidLib.UnitIDCache = {}
+
+    openRaidLib.Util = openRaidLib.Util or {}
 
     local CONST_CVAR_TEMPCACHE = "LibOpenRaidTempCache"
     local CONST_CVAR_TEMPCACHE_DEBUG = "LibOpenRaidTempCacheDebug"
@@ -618,7 +620,7 @@ end
     end
 
     --create an unique schedule
-    --if a schedule already exists, cancels it and make a new
+    --if a schedule already exists, cancels it and make a new ~unique
     function openRaidLib.Schedules.NewUniqueTimer(time, callback, namespace, scheduleName, ...)
         --the the schedule uses a default time, get it from the table, if the timer already exists, quit
         if (time == CONST_USE_DEFAULT_SCHEDULE_TIME) then
@@ -2538,6 +2540,74 @@ openRaidLib.commHandler.RegisterComm(CONST_COMM_COOLDOWNREQUEST_PREFIX, openRaid
 
 --------------------------------------------------------------------------------------------------------------------------------
 --~keystones
+
+    ---@class keystoneinfo
+    ---@field level number
+    ---@field mapID number
+    ---@field challengeMapID number
+    ---@field classID number
+    ---@field rating number
+    ---@field mythicPlusMapID number
+
+    --manager constructor
+    openRaidLib.KeystoneInfoManager = {
+        --structure:
+        --[playerName] = keystoneinfo
+        ---@type table<string, keystoneinfo>
+        KeystoneData = {},
+    }
+
+    --search the player backpack to find a mythic keystone
+    --with the keystone object, it'll attempt to get the mythicPlusMapID to be used with C_ChallengeMode.GetMapUIInfo(mythicPlusMapID)
+    --ATM we are obligated to do this due to C_MythicPlus.GetOwnedKeystoneMapID() return the same mapID for the two Tazavesh dungeons
+    local getMythicPlusMapID = function()
+        for backpackId = 0, 4 do
+            for slotId = 1, GetContainerNumSlots(backpackId) do
+                local itemId = GetContainerItemID(backpackId, slotId)
+                if (itemId == LIB_OPEN_RAID_MYTHICKEYSTONE_ITEMID) then
+                    local itemLink = GetContainerItemLink(backpackId, slotId)
+                    local destroyedItemLink = itemLink:gsub("|", "")
+                    local color, itemID, mythicPlusMapID = strsplit(":", destroyedItemLink)
+                    return tonumber(mythicPlusMapID)
+                end
+            end
+        end
+    end
+
+    local checkForKeystoneChange = function()
+        --clear the timer reference
+        openRaidLib.KeystoneInfoManager.KeystoneChangedTimer = nil
+
+        --check if the player has a keystone in the backpack by quering the keystone level
+        local level = C_MythicPlus.GetOwnedKeystoneLevel()
+        if (not level) then
+            return
+        end
+        local mapID = C_MythicPlus.GetOwnedKeystoneMapID()
+
+        --get the current player keystone info and then compare with the keystone info from the bag, if there is differences update the player keystone info
+        local unitName = UnitName("player")
+        ---@type keystoneinfo
+        local keystoneInfo = openRaidLib.KeystoneInfoManager.GetKeystoneInfo(unitName, true)
+
+        if (keystoneInfo.level ~= level or keystoneInfo.mapID ~= mapID) then
+            openRaidLib.KeystoneInfoManager.UpdatePlayerKeystoneInfo(keystoneInfo)
+            --hack: trigger a received data request to send data to party and guild when logging in
+            openRaidLib.KeystoneInfoManager.OnReceiveRequestData()
+        end
+    end
+
+    local bagUpdateEventFrame = _G["OpenRaidBagUpdateFrame"] or CreateFrame("frame", "OpenRaidBagUpdateFrame")
+    bagUpdateEventFrame:RegisterEvent("BAG_UPDATE")
+    bagUpdateEventFrame:RegisterEvent("ITEM_CHANGED")
+    bagUpdateEventFrame:SetScript("OnEvent", function(bagUpdateEventFrame, event, ...)
+        if (openRaidLib.KeystoneInfoManager.KeystoneChangedTimer) then
+            return
+        else
+            openRaidLib.KeystoneInfoManager.KeystoneChangedTimer = C_Timer.NewTimer(2, checkForKeystoneChange)
+        end
+    end)
+
     --public callback does not check if the keystone has changed from the previous callback
 
     --API calls
@@ -2605,13 +2675,9 @@ openRaidLib.commHandler.RegisterComm(CONST_COMM_COOLDOWNREQUEST_PREFIX, openRaid
             return true
         end
 
-    --manager constructor
-        openRaidLib.KeystoneInfoManager = {
-            --structure:
-            --[playerName] = {level = 2, mapID = 222}
-            KeystoneData = {},
-        }
+    --privite stuff, these function can still be called, but not advised
 
+        ---@type keystoneinfo
         local keystoneTablePrototype = {
             level = 0,
             mapID = 0,
@@ -2621,26 +2687,9 @@ openRaidLib.commHandler.RegisterComm(CONST_COMM_COOLDOWNREQUEST_PREFIX, openRaid
             mythicPlusMapID = 0,
         }
 
-    --search the player backpack to find a mythic keystone
-    --with the keystone object, it'll attempt to get the mythicPlusMapID to be used with C_ChallengeMode.GetMapUIInfo(mythicPlusMapID)
-    --ATM we are obligated to do this due to C_MythicPlus.GetOwnedKeystoneMapID() return the same mapID for the two Tazavesh dungeons
-    local getMythicPlusMapID = function()
-        for backpackId = 0, 4 do
-            for slotId = 1, GetContainerNumSlots(backpackId) do
-                local itemId = GetContainerItemID(backpackId, slotId)
-                if (itemId == LIB_OPEN_RAID_MYTHICKEYSTONE_ITEMID) then
-                    local itemLink = GetContainerItemLink(backpackId, slotId)
-                    local destroyedItemLink = itemLink:gsub("|", "")
-                    local color, itemID, mythicPlusMapID = strsplit(":", destroyedItemLink)
-                    return tonumber(mythicPlusMapID)
-                end
-            end
-        end
-    end
-
     function openRaidLib.KeystoneInfoManager.UpdatePlayerKeystoneInfo(keystoneInfo)
         keystoneInfo.level = C_MythicPlus.GetOwnedKeystoneLevel() or 0
-        keystoneInfo.mapID = C_MythicPlus.GetOwnedKeystoneMapID() or 0
+        keystoneInfo.mapID = C_MythicPlus.GetOwnedKeystoneMapID() or 0 --returning nil?
         keystoneInfo.mythicPlusMapID = getMythicPlusMapID() or 0
         keystoneInfo.challengeMapID = C_MythicPlus.GetOwnedKeystoneChallengeMapID() or 0
 
@@ -2760,12 +2809,8 @@ openRaidLib.commHandler.RegisterComm(CONST_COMM_COOLDOWNREQUEST_PREFIX, openRaid
         end
     end
 
-    function openRaidLib.KeystoneInfoManager.OnPlayerEnterWorld()
-        --keystones are only available on retail
-        if (not checkClientVersion("retail")) then
-            return
-        end
-        --hack: on received data send data to party and guild
+    local keystoneManagerOnPlayerEnterWorld = function()
+        --hack: trigger a received data request to send data to party and guild when logging in
         openRaidLib.KeystoneInfoManager.OnReceiveRequestData()
 
         --trigger public callback
@@ -2774,6 +2819,18 @@ openRaidLib.commHandler.RegisterComm(CONST_COMM_COOLDOWNREQUEST_PREFIX, openRaid
         openRaidLib.KeystoneInfoManager.UpdatePlayerKeystoneInfo(keystoneInfo)
 
         openRaidLib.publicCallback.TriggerCallback("KeystoneUpdate", unitName, keystoneInfo, openRaidLib.KeystoneInfoManager.KeystoneData)
+    end
+
+    function openRaidLib.KeystoneInfoManager.OnPlayerEnterWorld()
+        --keystones are only available on retail
+        if (not checkClientVersion("retail")) then
+            return
+        end
+
+        --attempt to load keystone item link as reports indicate it can be nil
+        getMythicPlusMapID()
+
+        C_Timer.After(2, keystoneManagerOnPlayerEnterWorld)
     end
 
     function openRaidLib.KeystoneInfoManager.OnMythicDungeonFinished()

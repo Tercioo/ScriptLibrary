@@ -45,7 +45,7 @@ do
 			[390386] = true, --fury of the aspects
 		}
 
-		LIB_OPEN_RAID_MYTHICKEYSTONE_ITEMID = 0 -- TODO: need to update to war within
+		LIB_OPEN_RAID_MYTHICKEYSTONE_ITEMID = 151086
 		LIB_OPEN_RAID_AUGMENTATED_RUNE = 0 -- TODO: need to update to war within
 
 		LIB_OPEN_RAID_COVENANT_ICONS = {
@@ -365,7 +365,6 @@ do
 			[8143] = {cooldown = 60,	duration = 10,	specs = {262, 263, 264},	talent = false,	charges = 1,	class = "SHAMAN",	type = 5}, --Tremor Totem
 			[192077] = {cooldown = 120,	duration = 15,	specs = {262, 263, 264},	talent = false,	charges = 1,	class = "SHAMAN",	type = 5}, --Wind Rush Totem
 			[198838] = {cooldown = 60,	duration = 15,	specs = {264},				talent = false,	charges = 1,	class = "SHAMAN",	type = 4}, --Earthen Wall Totem
-			[383017] = {cooldown = 30,	duration = 0,	specs = {},					talent = false,	charges = 1,	class = "SHAMAN",	type = 4}, --Stoneskin Totem
 			[192058] = {cooldown = 60,	duration = 0,	specs = {262, 263, 264},	talent = false,	charges = 1,	class = "SHAMAN",	type = 8}, --Capacitor Totem
 			[51485] = {cooldown = 60,	duration = 20,	specs = {262, 263, 264},	talent = false,	charges = 1,	class = "SHAMAN",	type = 8}, --Earthgrab Totem
 			[51514] = {cooldown = 30,	duration = 0,	specs = {},					talent = false,	charges = 1,	class = "SHAMAN",	type = 8}, --Hex
@@ -379,6 +378,7 @@ do
 			[383013] = {cooldown = 45,   duration = 6,   specs = {262, 263, 264},  	talent = false, charges = 1,    class = "SHAMAN",   type = 7}, --Poison Cleansing Totem
 			[305483] = {cooldown = 45,   duration = 5,   specs = {262, 263, 264},  	talent = false, charges = 1,    class = "SHAMAN",   type = 8}, --Lightning Lasso
 			[197214] = {cooldown = 40,   duration = 2,   specs = {262},  			talent = false, charges = 1,    class = "SHAMAN",   type = 8}, --Sundering
+			[108270] = {cooldown = 180,    duration = 15,specs = {262, 263, 264},   talent = false, charges = 1,    class = "SHAMAN",    type = 2}, --Stone Bulwark Totem
 
 			--~monk
 			-- 268 - Brewmaster
@@ -441,6 +441,8 @@ do
 			[236776] = {cooldown = 40, duration = 0, 	specs = {253, 254, 255},	talent = false, charges = 1, 	class = "HUNTER", 	type = 8}, --High Explosive Trap
 			[272682] = {cooldown = 45,	duration = 4,	specs = {253, 254, 255},	talent = false,	charges = 1,	class = "HUNTER",	type = 7}, --Master's Call
 			[359844] = {cooldown = 120, duration = 20,  specs = {253}, 				talent = true, charges = 1, 	class = "HUNTER", 	type = 1}, -- Call of the Wild
+			[462031] = {cooldown = 60,    duration = 0,    specs = {},    talent = false,    charges = 1,    class = "HUNTER",    type = 8}, --Implosive Trap
+
 			--Boar nil 62305 Master's Call
 			--Boar Tiranaa 54216 Master's Call
 			--Tiranaa Tiranaa 272682 Master's Call
@@ -512,6 +514,7 @@ do
 			[49039] = {cooldown = 120,	duration = 10,	specs = {250, 251, 252},	talent = false,	charges = 1,	class = "DEATHKNIGHT",	type = 2}, --Lichborne
 			[194679] = {cooldown = 25,	duration = 4,	specs = {252},				talent = false,	charges = 1,	class = "DEATHKNIGHT",	type = 2}, --Rune Tap
 			[194844] = {cooldown = 60,	duration = 0,	specs = {251},				talent = false,	charges = 1,	class = "DEATHKNIGHT",	type = 1}, --Bonestorm
+			[455395] = {cooldown = 90,  duration = 30,  specs = {252},    			talent = false, charges = 1,    class = "DEATHKNIGHT",  type = 1}, --Raise Abomination
 
 			--~demon hunter
 			-- 577 - Havoc
@@ -604,7 +607,7 @@ do
 			[527] = {cooldown = 8,	duration = 0,	specs = {256,257},				talent = false,	charges = 1,	class = "PRIEST",	type = 7}, --Purify 
 			[213634] = {cooldown = 8,	duration = 0,	specs = {258},				talent = false,	charges = 1,	class = "PRIEST",	type = 7}, --Purify Disease 
 			[108920] = {cooldown = 60,	duration = 20,	specs = {256, 257, 258},	talent = false,	charges = 1,	class = "PRIEST",	type = 8}, --Void Tendrils
-
+			[451235] = {cooldown = 120,	duration = 15,	specs = {256,258},			talent = false,	charges = 1,	class = "PRIEST",	type = 1}, --Voidwraith
 
 			--~rogue
 			-- 259 - Assasination
@@ -990,6 +993,61 @@ do
 			[1467] = 13,
 			[1468] = 13,
 			[1473] = 13,
+		}
+
+		LIB_OPEN_RAID_NPCID_TO_DISPLAYID = {
+			--City of Threads
+			[223181] = 119370, --Agile Pursuer
+			[220004] = 119377, --Ascended Aristocrat
+			[216326] = 115771, --Ascended Neophyte
+			[220199] = 120589, --Battle Scarab
+			[216329] = 114555, --Congealed Droplet
+			[223844] = 118106, --Covert Webmancer
+			[224732] = 118106, --Covert Webmancer
+			[221102] = 118827, --Elder Shadeweaver
+			[214840] = 117840, --Engorged Crawler
+			[220777] = 114268, --Executor Nizrek --? need more info
+			[220793] = 117374, --Favored Citizen
+			[227607] = 114421, --Fliq'ri
+			[220196] = 120905, --Herald of Ansurek
+			[220012] = 115734, --Hollows Merchant
+			[220003] = 119371, --Hollows Resident
+			[219983] = 114423, --Hollows Resident
+			[221103] = 118826, --Hulking Warshell
+			[216658] = 116701, --Izo, the Grand Splicer
+			[216341] = 120841, --Jabbing Flyer
+			[226060] = 119910, --Kobyss Puppet
+			[218324] = 117119, --Nakt
+			[216648] = 116699, --Nx
+			[216619] = 116692, --Orator Krix'vizk
+			[220401] = 121817, --Pale Priest
+			[223646] = 114026, --Pale Priest
+			[224331] = 117326, --Phylleus
+			[223254] = 118964, --Queen Ansurek
+			[216336] = 120876, --Ravenous Crawler
+			[220037] = 118106, --Reposing Knight
+			[220404] = 114418, --Royal Acolyte
+			[220197] = 120882, --Royal Swarmguard
+			[220730] = 120890, --Royal Venomshell
+			[224324] = 115750, --Silkswooner Waree
+			[216342] = 120891, --Skittering Assistant
+			[223357] = 120886, --Sureki Conscript
+			[220195] = 120872, --Sureki Silkbinder
+			[216339] = 120894, --Sureki Unnaturaler
+			[220193] = 120868, --Sureki Venomblade
+			[216320] = 117254, --The Coaglamation
+			[222646] = 116681, --Trained Flyer
+			[222559] = 116681, --Trained Flyer
+			[217470] = 115735, --Tulumun
+			[220353] = 116446, --Umbral Citizen
+			[220351] = 117374, --Umbral Citizen
+			[222700] = 118005, --Umbral Weave
+			[216328] = 116499, --Unstable Test Subject
+			[226058] = 118410, --Van'atka
+			[216649] = 116700, --Vx
+			[223182] = 119369, --Web Marauder
+			[224731] = 119369, --Web Marauder
+			[219984] = 119732, --Xeph'itik
 		}
 
 		LIB_OPEN_RAID_DATABASE_LOADED = true
