@@ -103,5 +103,5 @@ local secureScriptEnvironmentHandle = {
 setmetatable(_ENV, secureScriptEnvironmentHandle)
 
 scriptLibrary.SetFunctionEnvironment = function(func)
-    setfenv(func, _ENV)
+    --setfenv(func, _ENV)
 end
