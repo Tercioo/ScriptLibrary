@@ -1,5 +1,7 @@
+-- SPDX-License-Identifier: LGPL-2.1-or-later
+-- Details Framework (DetailsFramework-1.0) -- see Libs/DF/LICENSE
 
-local dversion = 684
+local dversion = 748
 local major, minor = "DetailsFramework-1.0", dversion
 local DF, oldminor = LibStub:NewLibrary(major, minor)
 
@@ -257,6 +259,12 @@ function DF.IsAddonApocalypseWow()
 	return buildInfo >= 120000
 end
 
+function DF.IsMidnightWowAPI()
+	if (buildInfo < 130000 and buildInfo >= 120000) then return true end
+	if (buildInfo < 60000 and buildInfo >= 50504) then   return true end
+	if (buildInfo < 30000 and buildInfo >= 20506) then   return true end
+	return false
+end
 
 ---return true if the player is playing in the WotLK version of wow with the retail api
 ---@return boolean
@@ -616,7 +624,6 @@ local embedFunctions = {
 	"ColorPick",
 	"IconPick",
 	"CreateSimplePanel",
-	"CreateChartPanel",
 	"CreateImage",
 	"CreateScrollBar",
 	"CreateSwitch",
@@ -803,15 +810,24 @@ end
 ---@param subOffset number?
 ---@return any
 function DF.table.getfrompath(t, path, subOffset)
+	--Lookup uses explicit `== nil` checks rather than truthiness so that a leaf value of
+	--`false` is returned verbatim instead of being treated as "missing key" and coerced to nil.
+	--The previous `t[key] or t[tonumber(key)]` form discarded legitimate false values, which
+	--corrupted callers that snapshot a value here and replay it later (e.g. editor.lua's
+	--undo/redo snapshot capture for toggles — replaying nil through setfrompath deletes the
+	--key, making the option disappear from the menu on the next rebuild).
 	if (path:match("%.") or path:match("%[")) then
 		local value
 		local offset = 0
 
 		for key in path:gmatch("[%w_]+") do
-			value = t[key] or t[tonumber(key)]
+			value = t[key]
+			if (value == nil) then
+				value = t[tonumber(key)]
+			end
 
-			--check if the value is nil, if it is, the key does not exists in the table
-			if (not value) then
+			--check if the value is nil, if it is, the key does not exist in the table
+			if (value == nil) then
 				return
 			end
 
@@ -826,7 +842,11 @@ function DF.table.getfrompath(t, path, subOffset)
 
 		return value
 	else
-		return t[path] or t[tonumber(path)]
+		local value = t[path]
+		if (value == nil) then
+			value = t[tonumber(path)]
+		end
+		return value
 	end
 end
 
@@ -898,6 +918,28 @@ function DF.table.addunique(t, index, value)
 	return true
 end
 
+---return if both tables has the same values in the same order
+---@param t1 table
+---@param t2 table
+---@return boolean
+function DF.table.isequal(t1, t2)
+	if (t1 == t2) then
+		return true
+	end
+
+	if (#t1 ~= #t2) then
+		return false
+	end
+
+	for i = 1, #t1 do
+		if (t1[i] ~= t2[i]) then
+			return false
+		end
+	end
+
+	return true
+end
+
 ---get the table 't' and reverse the order of the values within it
 ---@param t table
 ---@return table
@@ -938,7 +980,7 @@ function DF.table.duplicate(t1, t2)
 	for key, value in pairs(t2) do
 		if (key ~= "__index" and key ~= "__newindex") then
 			--preserve a UIObject passing it to the new table with copying it
-			if (type(value) == "table" and table.GetObjectType and table:GetObjectType()) then
+			if (type(value) == "table" and value.GetObjectType and value:GetObjectType()) then
 				t1[key] = value
 
 			elseif (type(value) == "table") then
@@ -1105,9 +1147,15 @@ local function tableToString(t, resultString, deep, seenTables)
             resultString = resultString .. space .. "|cFFa9ffa9},|r\n"
 
 		elseif (valueType == "string") then
+			if issecretvalue(value) then
+				value = "#secret-string#"
+			end
 			resultString = resultString .. space .. "[\"" .. key .. "\"] = \"|cFFfff1c1" .. value .. "|r\",\n"
 
 		elseif (valueType == "number") then
+			if issecretvalue(value) then
+				value = "#secret-number#"
+			end
 			if (type(key) == "number") then
 				resultString = resultString .. space .. "[" .. key .. "] = |cFFffc1f4" .. value .. "|r,\n"
 			else
@@ -1118,7 +1166,12 @@ local function tableToString(t, resultString, deep, seenTables)
 			resultString = resultString .. space .. "[\"" .. key .. "\"] = |cFFC586C0function|r,\n"
 
 		elseif (valueType == "boolean") then
-			resultString = resultString .. space .. "[\"" .. key .. "\"] = |cFF99d0ff" .. (value and "true" or "false") .. "|r,\n"
+			if issecretvalue(value) then
+				value = "#secret-boolean#"
+				resultString = resultString .. space .. "[\"" .. key .. "\"] = |cFF99d0ff" .. value .. "|r,\n"
+			else
+				resultString = resultString .. space .. "[\"" .. key .. "\"] = |cFF99d0ff" .. (value and "true" or "false") .. "|r,\n"
+			end
 		end
     end
 
@@ -1422,6 +1475,23 @@ function DF:RemoveRealName(name)
 	return name:gsub(("%-.*"), "")
 end
 
+---set the font face, size and flags of a font
+---@param fontString fontstring
+---@param fontface string?
+---@param size number?
+---@param flags string?
+function DF:SetFont(fontString, fontface, size, flags)
+	if fontface then
+		DF:SetFontFace(fontString, fontface)
+	end
+	if size then
+		DF:SetFontSize(fontString, size)
+	end
+	if flags then
+		DF:SetFontOutline(fontString, flags)
+	end
+end
+
 ---get the UIObject of type 'FontString' named fontString and set the font size to the maximum value of the arguments
 ---@param self table
 ---@param fontString fontstring
@@ -1446,8 +1516,12 @@ function DF:SetFontFace(fontString, fontface)
 		fontface = font
 	end
 
-	local _, size, flags = fontString:GetFont()
-	return fontString:SetFont(fontface, size, flags)
+	if _G[fontface] then
+		fontface = _G[fontface]:GetFont()
+	end
+
+	local origFont, size, flags = fontString:GetFont()
+	local ok = pcall(fontString.SetFont, fontString, fontface, size, flags) -- silently fail this one
 end
 
 local dummyFontString = UIParent:CreateFontString(nil, "background", "GameFontNormal")
@@ -1520,6 +1594,22 @@ function DF:SetFontRotation(fontString, degrees) --deprecated, use fontString:Se
 		fontString.__rotationAnimation:Play()
 		fontString.__rotationAnimation:Pause()
 	end
+end
+
+function DF:RemoveColorCodes(text)
+    --remove color code: |cFFFFFFFF
+    text = string.gsub(text, "%|c%w+", "")
+    --remove the end code: |r
+    text = string.gsub(text, "%|r", "")
+    return text
+end
+
+--function to remove |T...|t style codes from text
+--removes portions starting with |T and ending with |t, including both delimiters
+function DF:RemoveTextureCodes(text)
+	--remove |T...|t style codes
+	text = string.gsub(text, "%|T.-%|t", "")
+	return text
 end
 
 ---receives a string and a color and return the string wrapped with the color using |c and |r scape codes
@@ -1639,7 +1729,7 @@ function DF:AddClassIconToText(text, playerName, englishClassName, useSpec, icon
 		end
 	end
 
-	if (englishClassName) then
+	if (englishClassName and Details and Details.class_coords and Details.class_coords[englishClassName]) then
 		local classString = ""
 		--Details.class_coords uses english class names as keys and the values are tables containing texture coordinates
 		local L, R, T, B = unpack(Details.class_coords[englishClassName])
@@ -1710,7 +1800,7 @@ end
 ---@param textureInfo table
 ---@param bAddSpace any
 ---@param bAddAfterText any
----@return string
+---@return string, string
 function DF:AddTextureToText(text, textureInfo, bAddSpace, bAddAfterText)
 	local texture = textureInfo.texture
 	local textureWidth = textureInfo.width
@@ -1723,12 +1813,16 @@ function DF:AddTextureToText(text, textureInfo, bAddSpace, bAddAfterText)
 	top = top or 0
 	bottom = bottom or 1
 
+	local textureString = "|T" .. texture .. ":" .. textureHeight .. ":" .. textureWidth .. ":0:0:" .. imageWidth .. ":" .. imageHeight .. ":" .. (left * imageWidth) .. ":" .. (right * imageWidth) .. ":" .. (top * imageHeight) .. ":" .. (bottom * imageHeight) .. "|t"
+
 	if (bAddAfterText) then
-		local newString = text .. (bAddSpace and " " or "") .. "|T" .. texture .. ":" .. textureHeight .. ":" .. textureWidth .. ":0:0:" .. imageWidth .. ":" .. imageHeight .. ":" .. (left * imageWidth) .. ":" .. (right * imageWidth) .. ":" .. (top * imageHeight) .. ":" .. (bottom * imageHeight) .. "|t"
-		return newString
+		textureString = (bAddSpace and " " or "") .. textureString
+		local newString = text .. textureString
+		return newString, textureString
 	else
-		local newString = "|T" .. texture .. ":" .. textureHeight .. ":" .. textureWidth .. ":0:0:" .. imageWidth .. ":" .. imageHeight .. ":" .. (left * imageWidth) .. ":" .. (right * imageWidth) .. ":" .. (top * imageHeight) .. ":" .. (bottom * imageHeight) .. "|t" .. (bAddSpace and " " or "") .. text
-		return newString
+		textureString = textureString .. (bAddSpace and " " or "")
+		local newString = textureString .. text
+		return newString, textureString
 	end
 end
 
@@ -1751,18 +1845,27 @@ function DF:GetFontFace(fontString)
 end
 
 local ValidOutlines = {
-	["NONE"] = true,
+	[""] = true,
+	["SLUG"] = true,
+	["OUTLINE, SLUG"] = true, -- compatibility for existing slug values
+	["SLUG,OUTLINE"] = true, -- order does not matter here
+	["OUTLINE,SLUG"] = true,
 	["MONOCHROME"] = true,
 	["OUTLINE"] = true,
 	["THICKOUTLINE"] = true,
 	["OUTLINEMONOCHROME"] = true,
 	["THICKOUTLINEMONOCHROME"] = true,
+	["MONOCHROME, OUTLINE"] = true, -- backwards compatibility
+	["MONOCHROME, THICKOUTLINE"] = true
 }
 
 --outline flags are used with the function SetFont on fontstrings, signiture: fontString:SetFont(fontFile, size, outlineFlags) -> outlineFlags are usually just called 'flags', 'size' can also be found named as 'height'.
 --in the first index of the sub table there is the value to be used on SetFont, in the second index there is a user friendly name
 DF.FontOutlineFlags = {
 	{"", "None"},
+	{"NONE", "None"}, -- backwards compatibility
+	{"SLUG", "Slug"},
+	{"SLUG,OUTLINE", "Outline Slug"},
 	{"MONOCHROME", "Monochrome"},
 	{"OUTLINE", "Outline"},
 	{"THICKOUTLINE", "Thick Outline"},
@@ -1798,7 +1901,11 @@ function DF:SetFontOutline(fontString, outline)
         end
     end
 
-    outline = (not outline or outline == "NONE") and "" or outline
+	outline = (not outline or outline == "NONE") and "" or outline
+
+	if not ValidOutlines[outline] then
+		outline = ""
+	end
 
     fontString:SetFont(font, fontSize, outline)
 end
@@ -1957,7 +2064,8 @@ function DF:TruncateNumber(number, fractionDigits)
 	if (number >= 0) then
 		truncatedNumber = floor(number * mult + 0.5) / mult
 	else
-		truncatedNumber = ceil(number * mult + 0.5) / mult
+		--for negative numbers, subtract 0.5 before ceiling so that .5 rounds away from zero
+		truncatedNumber = ceil(number * mult - 0.5) / mult
 	end
 
 	return truncatedNumber
@@ -2851,7 +2959,7 @@ end
 
 		--
 		TutorialAlertFrame.label = type(maintext) == "string" and maintext or type(desctext) == "string" and desctext or ""
-		MicroButtonAlert_SetText (TutorialAlertFrame, alert.label)
+		MicroButtonAlert_SetText (TutorialAlertFrame, TutorialAlertFrame.label)
 		--
 
 		TutorialAlertFrame.clickfunc = clickfunc
@@ -4247,7 +4355,7 @@ function DF:CreateGlowOverlay(parent, antsColor, glowColor)
 	end
 
 	local glowFrame
-	if (buildInfo >= 110107 or DF.IsTBCWow()) then --24-05-2025: in the 11.1.7 patch, the template used here does not exist anymore, replacement used
+	if (DF.IsMidnightWowAPI() or DF.IsTBCWow()) then --24-05-2025: in the 11.1.7 patch, the template used here does not exist anymore, replacement used
 		glowFrame = CreateFrame("frame", frameName, parent, "ActionButtonSpellAlertTemplate")
 	else
 		glowFrame = CreateFrame("frame", frameName, parent, "ActionBarButtonSpellActivationAlert")
@@ -5498,16 +5606,15 @@ end
 
 -- TODO: maybe make this auto-generaded some day?...
 DF.CLEncounterID = {
-	{ID = 2423, Name = "The Tarragrue"},
-	{ID = 2433, Name = "The Eye of the Jailer"},
-	{ID = 2429, Name = "The Nine"},
-	{ID = 2432, Name = "Remnant of Ner'zhul"},
-	{ID = 2434, Name = "Soulrender Dormazain"},
-	{ID = 2430, Name = "Painsmith Raznal"},
-	{ID = 2436, Name = "Guardian of the First Ones"},
-	{ID = 2431, Name = "Fatescribe Roh-Kalo"},
-	{ID = 2422, Name = "Kel'Thuzad"},
-	{ID = 2435, Name = "Sylvanas Windrunner"},
+	{ID = 3176, Name = "Imperator Averzian"},
+	{ID = 3177, Name = "Vorasius"},
+	{ID = 3179, Name = "Fallen-King Salhadaar"},
+	{ID = 3178, Name = "Vaelgor & Ezzorak"},
+	{ID = 3180, Name = "Lightblinded Vanguard"},
+	{ID = 3181, Name = "Crown of the Cosmos"},
+	{ID = 3306, Name = "Chimaerus the Undreamt God"},
+	{ID = 3182, Name = "Belo'ren, Child of Al'ar"},
+	{ID = 3183, Name = "Midnight Falls"},
 }
 
 function DF:GetPlayerRole()
@@ -5666,7 +5773,7 @@ local specInformation = {
 	[64] = {specId = 64, name = "Frost", specIcon = 135846, role = "DAMAGER", classId = 8, className = "MAGE", specIndex = 2, flags = 0x3, primaryStatPriority = 0},
 	[65] = {specId = 65, name = "Holy", specIcon = 135920, role = "HEALER", classId = 2, className = "PALADIN", specIndex = 0, flags = 0x5, primaryStatPriority = 1},
 	[66] = {specId = 66, name = "Protection", specIcon = 236264, role = "TANK", classId = 2, className = "PALADIN", specIndex = 1, flags = 0x4, primaryStatPriority = 0},
-	[68] = {specId = 68, name = "Retribution", specIcon = 135873, role = "DAMAGER", classId = 2, className = "PALADIN", specIndex = 2, flags = 0x4, primaryStatPriority = 0},
+	[70] = {specId = 70, name = "Retribution", specIcon = 135873, role = "DAMAGER", classId = 2, className = "PALADIN", specIndex = 2, flags = 0x4, primaryStatPriority = 0},
 	[71] = {specId = 71, name = "Arms", specIcon = 132355, role = "DAMAGER", classId = 1, className = "WARRIOR", specIndex = 0, flags = 0x4, primaryStatPriority = 0},
 	[72] = {specId = 72, name = "Fury", specIcon = 132347, role = "DAMAGER", classId = 1, className = "WARRIOR", specIndex = 1, flags = 0x4, primaryStatPriority = 0},
 	[73] = {specId = 73, name = "Protection", specIcon = 132341, role = "TANK", classId = 1, className = "WARRIOR", specIndex = 2, flags = 0x4, primaryStatPriority = 0},
@@ -5700,6 +5807,8 @@ local specInformation = {
 	[537] = {specId = 537, name = "Tenacity", specIcon = 132121, role = "TANK", classId = 0, className = "WARRIOR", specIndex = 1, flags = 0x20, primaryStatPriority = 0},
 	[577] = {specId = 577, name = "Havoc", specIcon = 1247264, role = "DAMAGER", classId = 12, className = "DEMONHUNTER", specIndex = 0, flags = 0x44, primaryStatPriority = 3},
 	[581] = {specId = 581, name = "Vengeance", specIcon = 1247265, role = "TANK", classId = 12, className = "DEMONHUNTER", specIndex = 1, flags = 0x4, primaryStatPriority = 3},
+	[1480] = {specId = 1480, name = "Devourer", specIcon = 7455386, role = "TANK", classId = 12, className = "DEMONHUNTER", specIndex = 1, flags = 0x4, primaryStatPriority = 3},
+	--[1480] = {specId = 1480, name = "Devourer", specIcon = 7455385, role = "DAMAGER", classId = 12, className = "DEMONHUNTER", specIndex = 2, flags = 0x3, primaryStatPriority = 3},
 	[1444] = {specId = 1444, name = "Initial", specIcon = 136048, role = "DAMAGER", classId = 7, className = "SHAMAN", specIndex = 4, flags = 0x3, primaryStatPriority = 0},
 	[1446] = {specId = 1446, name = "Initial", specIcon = 132355, role = "DAMAGER", classId = 1, className = "WARRIOR", specIndex = 4, flags = 0x44, primaryStatPriority = 5},
 	[1447] = {specId = 1447, name = "Initial", specIcon = 136096, role = "DAMAGER", classId = 11, className = "DRUID", specIndex = 4, flags = 0x14b, primaryStatPriority = 0},
@@ -5717,7 +5826,11 @@ local specInformation = {
 	[1468] = {specId = 1468, name = "Preservation", specIcon = 4511812, role = "HEALER", classId = 13, className = "EVOKER", specIndex = 1, flags = 0x3, primaryStatPriority = 0},
 	[1473] = {specId = 1473, name = "Augmentation", specIcon = 5198700, role = "DAMAGER", classId = 13, className = "EVOKER", specIndex = 2, flags = 0x3, primaryStatPriority = 0},
 	[1478] = {specId = 1478, name = "Adventurer", specIcon = 2055034, role = "DAMAGER", classId = 14, className = "ROGUE", specIndex = 4, flags = 0x2, primaryStatPriority = 4},
-	[1480] = {specId = 1480, name = "Devourer", specIcon = 7455385, role = "DAMAGER", classId = 12, className = "DEMONHUNTER", specIndex = 2, flags = 0x3, primaryStatPriority = 0},
+}
+
+local specIconToSpecInformation = {
+	[7455385] = specInformation[1480], --Devourer
+	[7455386] = specInformation[1480], --Devourer
 }
 
 --make a table where the key is the specIcon and the value is the table from specInformation
@@ -5740,8 +5853,16 @@ end
 function DF:GetSpecInfoFromSpecId(specId)
 	return specInformation[specId]
 end
+
 --~spec
 function DF:GetSpecInfoFromSpecIcon(specIcon)
+	local specInfo = specIconToInfo[specIcon]
+	if (not specInfo) then
+		specInfo = specIconToSpecInformation[specIcon]
+		if specInfo then
+			return specInfo
+		end
+	end
 	return specIconToInfo[specIcon]
 end
 
@@ -6077,7 +6198,7 @@ do
             --need to create the new object
             local newObject = self.newObjectFunc(self, unpack(self.payload))
             if (newObject) then
-				self.objectsCreated = self.objectsCreated + 0
+				self.objectsCreated = self.objectsCreated + 1
 				table.insert(self.inUse, newObject)
 				if (self.onAcquire) then
 					DF:QuickDispatch(self.onAcquire, newObject)
